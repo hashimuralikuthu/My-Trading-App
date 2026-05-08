@@ -3,142 +3,171 @@ import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
-import numpy as np
-import os
+import requests
+import io
 import time
 
 # 1. Page Configuration
-st.set_page_config(page_title="Groww Pro Terminal", layout="wide")
-st.title("🟢 My Trading Terminal (Groww Style)")
+st.set_page_config(page_title="Pro Trading Terminal", layout="wide")
+st.title("🔴 My Pro Trading Terminal V11 (Smart Search)")
 
-# --- V37: STABLE DATA ENGINE ---
-@st.cache_data
-def get_local_stock_list():
-    file_path = 'EQUITY_L.csv'
-    if os.path.exists(file_path):
-        try:
-            df = pd.read_csv(file_path)
-            df.columns = df.columns.str.strip() 
-            df = df[df['SERIES'].str.strip() == 'EQ'].copy()
-            df['Display Name'] = df['SYMBOL'] + " - " + df['NAME OF COMPANY']
-            df['Yahoo Ticker'] = df['SYMBOL'].astype(str) + ".NS"
-            return dict(zip(df['Display Name'], df['Yahoo Ticker']))
-        except: return {"RELIANCE": "RELIANCE.NS"}
-    return {"RELIANCE": "RELIANCE.NS"}
+# --- SMART NSE TICKER FETCHING (LIKE GROWW) ---
+@st.cache_data(ttl=86400)
+def get_all_nse_tickers():
+    try:
+        url = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        r = requests.get(url, headers=headers, timeout=15)
+        df = pd.read_csv(io.StringIO(r.text))
+        df = df[df['SERIES'] == 'EQ']
+        
+        # NEW: Combine Company Name and Symbol (e.g., "Zomato Limited (ZOMATO)")
+        df['Display Name'] = df['NAME OF COMPANY'] + " (" + df['SYMBOL'] + ")"
+        df['Yahoo Ticker'] = df['SYMBOL'].astype(str) + ".NS"
+        
+        # Create a dictionary mapping the beautiful display name to the Yahoo ticker
+        stock_dict = dict(zip(df['Display Name'], df['Yahoo Ticker']))
+        return stock_dict
+    except Exception as e:
+        # Fallback dictionary if NSE website is slow
+        return {
+            "Reliance Industries Limited (RELIANCE)": "RELIANCE.NS",
+            "Tata Consultancy Services Limited (TCS)": "TCS.NS",
+            "Zomato Limited (ZOMATO)": "ZOMATO.NS",
+            "HDFC Bank Limited (HDFCBANK)": "HDFCBANK.NS",
+            "Infosys Limited (INFY)": "INFY.NS"
+        }
 
-stock_dict = get_local_stock_list()
-stock_names = sorted(list(stock_dict.keys()))
+stock_dict = get_all_nse_tickers()
+stock_display_names = list(stock_dict.keys())
 
-# 2. Sidebar Settings (Groww Sidebar Style)
-st.sidebar.header("🔍 Search Market")
-selected_stock = st.sidebar.selectbox(f"Select from {len(stock_names)} stocks", stock_names, index=0)
-ticker_symbol = stock_dict[selected_stock]
+# Find Zomato to use as the default starting stock
+default_index = 0
+for i, name in enumerate(stock_display_names):
+    if "ZOMATO" in name:
+        default_index = i
+        break
+
+# 2. Sidebar Settings
+st.sidebar.header("🎯 Market Explorer")
+# NEW: The selectbox now uses the beautiful Company Names!
+selected_display_name = st.sidebar.selectbox("Search Company Name or Symbol", stock_display_names, index=default_index)
+
+# Automatically extract the actual symbol for the code to use
+ticker_symbol = stock_dict[selected_display_name]
 
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    time_period = st.selectbox("Timeline", ["1d", "5d", "1mo", "1y"], index=0)
+    time_period = st.selectbox("Period", ["1d", "5d", "1mo", "3mo"], index=0)
 with col2:
-    time_interval = st.selectbox("Candle", ["1m", "5m", "15m", "1h"], index=1)
+    time_interval = st.selectbox("Candle", ["1m", "5m", "15m", "30m"], index=0)
 
 st.sidebar.markdown("---")
-st.sidebar.header("📊 Technicals")
-show_indicators = st.sidebar.checkbox("Show EMA & VWAP", value=True)
-show_rsi = st.sidebar.checkbox("Show RSI", value=True)
+st.sidebar.header("🛠️ Technical Tools")
+show_sma = st.sidebar.checkbox("20 SMA (Trend)", value=True)
+show_ema = st.sidebar.checkbox("50 EMA (Support)", value=False)
+show_rsi = st.sidebar.checkbox("RSI (Overbought)", value=False)
 
 st.sidebar.markdown("---")
-live_mode = st.sidebar.toggle("🟢 Live Auto-Refresh (30s)", value=False)
+st.sidebar.header("⚡ Live Engine")
+live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
+if live_mode:
+    st.sidebar.success("Live Mode Active: Updating every 30s")
 
-# 3. Calculation Engine
-def apply_groww_technicals(df):
-    if df is None or df.empty: return None
-    if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-    
-    # EMAs & VWAP
-    df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
-    df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-    v = df['Volume'].values
-    p = (df['High'] + df['Low'] + df['Close']).values / 3
-    df['VWAP'] = (p * v).cumsum() / (v.cumsum() + 1e-10)
-    
-    # RSI
-    delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
-    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
-    df['RSI'] = 100 - (100 / (1 + (gain / (loss + 1e-10))))
-    return df
+# 3. Data Fetching Logic
+@st.cache_data(ttl=30)
+def load_data(ticker, period, interval):
+    try:
+        data = yf.download(tickers=ticker, period=period, interval=interval, progress=False)
+        if data.empty: return pd.DataFrame()
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+        return data
+    except:
+        return pd.DataFrame()
 
-# 4. Main Display Logic
-data = yf.download(ticker_symbol, period=time_period, interval=time_interval, progress=False)
+data = load_data(ticker_symbol, time_period, time_interval)
 
+# 4. Dashboard Visuals
 if not data.empty:
-    df = apply_groww_technicals(data)
-    ltp = df['Close'].iloc[-1]
-    prev = df['Close'].iloc[-2]
-    change = ltp - prev
-    pct = (change / prev) * 100
+    last_price = data['Close'].iloc[-1]
+    prev_price = data['Close'].iloc[-2]
+    change = last_price - prev_price
+    pct_change = (change / prev_price) * 100
+
+    # Show the clean Company Name at the top instead of just the ticker
+    st.subheader(f"📊 {selected_display_name}")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Current Price", f"₹{last_price:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
+    c2.metric("Day High", f"₹{data['High'].max():.2f}")
+    c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
+
+    data['SMA20'] = data['Close'].rolling(window=20).mean()
+    data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
     
-    # --- GROWW STYLE HEADER ---
-    st.markdown(f"### {selected_stock}")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("LTP", f"₹{ltp:.2f}", f"{change:.2f} ({pct:.2f}%)")
-    c2.metric("Today's High", f"₹{df['High'].max():.2f}")
-    c3.metric("Today's Low", f"₹{df['Low'].min():.2f}")
-    c4.metric("Avg Vol", f"{int(df['Volume'].mean()):,}")
+    delta = data['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    data['RSI'] = 100 - (100 / (1 + rs))
 
-    # --- GROWW STYLE CHART ---
-    rows = 2 if show_rsi else 1
-    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.02, row_heights=[0.8, 0.2] if show_rsi else [1])
+    rows = 3 if show_rsi else 2
+    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
+                        vertical_spacing=0.05, 
+                        row_width=[0.2, 0.2, 0.6] if show_rsi else [0.3, 0.7])
 
-    # Groww Official Palette
-    groww_green = '#00D09C'
-    groww_red = '#EB5B3C'
-    bg_color = '#FFFFFF' if not st.get_option("theme.base") == "dark" else '#121212'
+    bull_color = '#00FF00' 
+    bear_color = '#FF0033' 
 
-    # 1. THE CANDLES
     fig.add_trace(go.Candlestick(
-        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-        increasing_line_color=groww_green, decreasing_line_color=groww_red,
-        increasing_fillcolor=groww_green, decreasing_fillcolor=groww_red,
-        name='Price'
+        x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], 
+        name='Price',
+        increasing_line_color=bull_color, decreasing_line_color=bear_color,
+        increasing_fillcolor=bull_color, decreasing_fillcolor=bear_color,
+        line=dict(width=2)
     ), row=1, col=1)
 
-    if show_indicators:
-        fig.add_trace(go.Scatter(x=df.index, y=df['EMA9'], line=dict(color='#2196F3', width=1.2), name='EMA 9'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['VWAP'], line=dict(color='#FF9800', width=1.5, dash='dot'), name='VWAP'), row=1, col=1)
+    if show_sma:
+        fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], line=dict(color='#FFD700', width=2), name='SMA 20'), row=1, col=1)
+    if show_ema:
+        fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], line=dict(color='#00E5FF', width=2), name='EMA 50'), row=1, col=1)
+
+    colors = [bull_color if c >= o else bear_color for o, c in zip(data['Open'], data['Close'])]
+    fig.add_trace(go.Bar(x=data.index, y=data['Volume'], marker_color=colors, name='Volume', opacity=0.8), row=2, col=1)
 
     if show_rsi:
-        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#7E57C2', width=2), name='RSI'), row=2, col=1)
-        fig.add_hline(y=70, line_dash="dash", line_color=groww_red, row=2, col=1, opacity=0.3)
-        fig.add_hline(y=30, line_dash="dash", line_color=groww_green, row=2, col=1, opacity=0.3)
+        fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='#B026FF', width=2), name='RSI'), row=3, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color=bear_color, row=3, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color=bull_color, row=3, col=1)
 
-    # --- GROWW CHART LAYOUT ---
     fig.update_layout(
-        height=750,
-        template="plotly_dark",
-        xaxis_rangeslider_visible=False,
-        showlegend=False,
-        margin=dict(l=10, r=60, t=10, b=10),
-        uirevision=ticker_symbol,
-        dragmode='pan'
+        height=850, 
+        template="plotly_dark", 
+        xaxis_rangeslider_visible=False, 
+        showlegend=True,
+        dragmode='pan',          
+        hovermode='x unified',   
+        plot_bgcolor='#000000',  
+        paper_bgcolor='#000000', 
+        margin=dict(l=20, r=20, t=40, b=20)
     )
+    
+    fig.update_xaxes(showgrid=False)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#1A1A1A') 
+    
+    chart_config = {
+        'scrollZoom': True,      
+        'displayModeBar': True,  
+        'modeBarButtonsToAdd': ['drawline', 'eraseshape'], 
+        'displaylogo': False     
+    }
+    
+    st.plotly_chart(fig, use_container_width=True, config=chart_config)
 
-    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='#2A2A2A', 
-                     rangebreaks=[dict(bounds=["sat", "mon"]), dict(bounds=[15.5, 9.25], pattern="hour")])
-    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='#2A2A2A', side='right')
-
-    # AI Suggestion in Sidebar
-    with st.sidebar:
-        st.markdown("---")
-        st.header("🤖 AI Signal")
-        if ltp > df['EMA9'].iloc[-1]:
-            st.success("### 🟢 BUY\nTrend is Bullish")
-        else:
-            st.error("### 🔴 SELL\nTrend is Bearish")
-
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
-
-    if live_mode:
-        time.sleep(30)
-        st.rerun()
 else:
-    st.error("Select a stock to view.")
+    st.error(f"Error fetching data for {selected_display_name}. Please try a different timeframe.")
+
+if live_mode:
+    time.sleep(30)
+    st.rerun()
