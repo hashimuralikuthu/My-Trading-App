@@ -4,13 +4,12 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import os
-import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Pro Trading Terminal", layout="wide")
-st.title("🔴 My Pro Trading Terminal V23 (Total Market Sync)")
+st.title("🔴 My Pro Trading Terminal V24 (Total Market Sync)")
 
-# --- V23: LOCAL CSV DATA ENGINE ---
+# --- V24: LOCAL CSV ENGINE WITH SPACE FIX ---
 @st.cache_data
 def get_local_stock_list():
     file_path = 'EQUITY_L.csv'
@@ -19,6 +18,10 @@ def get_local_stock_list():
     if os.path.exists(file_path):
         try:
             df = pd.read_csv(file_path)
+            
+            # THE FIX: Strip hidden spaces from the NSE file's column names
+            df.columns = df.columns.str.strip()
+            
             # Filter to show only Equity series
             df = df[df['SERIES'] == 'EQ'].copy()
             
@@ -28,12 +31,13 @@ def get_local_stock_list():
             
             # Create a dictionary mapping
             return dict(zip(df['Display Name'], df['Yahoo Ticker']))
+            
         except Exception as e:
             st.error(f"Error reading CSV: {e}")
             return {"RELIANCE - Reliance Industries": "RELIANCE.NS"}
     else:
         # Emergency Fallback if the file isn't uploaded properly
-        st.error("⚠️ 'EQUITY_L.csv' not found. Please ensure it is uploaded to your GitHub repository in the same folder as this code.")
+        st.error("⚠️ 'EQUITY_L.csv' not found. Please ensure it is uploaded to your GitHub repository.")
         return {
             "IDEA - Vodafone Idea": "IDEA.NS",
             "TATASTEEL - Tata Steel": "TATASTEEL.NS",
@@ -74,14 +78,14 @@ live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 if live_mode:
     st.sidebar.success("Live Mode Active: Updating every 30s")
 
-# 3. Live Dashboard Engine (Using Streamlit Fragment for speed)
+# 3. Live Dashboard Engine
 @st.fragment(run_every="30s" if live_mode else None)
 def display_terminal():
     # Fetch Data
     data = yf.download(tickers=ticker_symbol, period=time_period, interval=time_interval, progress=False)
     
     if data.empty:
-        st.error(f"Market data for {ticker_symbol} is currently unavailable. Market may be closed or ticker is invalid.")
+        st.error(f"Market data for {ticker_symbol} is currently unavailable.")
         return
         
     # Fix MultiIndex for YFinance
