@@ -150,12 +150,22 @@ def display_terminal():
         margin=dict(l=10, r=10, t=20, b=10),
         plot_bgcolor='#000000',
         paper_bgcolor='#000000',
+        dragmode='pan',            # <--- Allows clicking and dragging the chart left/right
+        uirevision=ticker_symbol   # <--- Stops the chart from resetting zoom when Live Mode updates
     )
     
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#1A1A1A') 
     
-    st.plotly_chart(fig, use_container_width=True)
+    # <--- Enables the Mouse Scroll Wheel to Zoom in and out --->
+    chart_config = {
+        'scrollZoom': True,      
+        'displayModeBar': True,  
+        'modeBarButtonsToAdd': ['drawline', 'eraseshape'], 
+        'displaylogo': False     
+    }
+    
+    st.plotly_chart(fig, use_container_width=True, config=chart_config)
 
 # Run the UI
 display_terminal()
