@@ -3,14 +3,15 @@ import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+import numpy as np
 import os
 import time
 
 # 1. Page Configuration
-st.set_page_config(page_title="Pro Terminal V33", layout="wide")
-st.title("💎 Pro Trading Terminal V33 (Green & Red Edition)")
+st.set_page_config(page_title="Intraday Pro Terminal", layout="wide")
+st.title("🚀 Intraday Pro Terminal V29 (Price + Indicators)")
 
-# --- V33: DATA ENGINE ---
+# --- V29: DATA ENGINE ---
 @st.cache_data
 def get_local_stock_list():
     file_path = 'EQUITY_L.csv'
@@ -40,10 +41,11 @@ with col2:
     time_interval = st.selectbox("Candle", ["1m", "5m", "15m", "30m", "1h", "1d"], index=1)
 
 st.sidebar.markdown("---")
-st.sidebar.header("🛠️ Master Tools")
-show_indicators = st.sidebar.toggle("Show EMAs & VWAP", value=True)
-show_volume = st.sidebar.toggle("Show Volume Overlay", value=True)
-show_rsi = st.sidebar.toggle("Show RSI Strength", value=True)
+st.sidebar.header("🛠️ Intraday Indicators")
+show_vwap = st.sidebar.checkbox("VWAP (Intraday Anchor)", value=True)
+show_bb = st.sidebar.checkbox("Bollinger Bands", value=False)
+show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True)
+show_rsi = st.sidebar.checkbox("RSI (Strength)", value=True)
 
 st.sidebar.markdown("---")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
@@ -51,23 +53,32 @@ live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 # 3. Technical Calculation Engine
 def apply_indicators(df):
     if df is None or df.empty: return None
+    # Correct columns for multi-index if needed
     if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
     
-    # EMAs
-    df['EMA9'] = df['Close'].ewm(span=9, adjust=False).mean()
-    df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
-    
-    # VWAP
+    # 1. VWAP
     v = df['Volume'].values
     p = (df['High'] + df['Low'] + df['Close']).values / 3
-    df['VWAP'] = (p * v).cumsum() / (v.cumsum() + 1e-10)
+    df['VWAP'] = (p * v).cumsum() / v.cumsum()
     
-    # RSI
+    # 2. Bollinger Bands
+    df['SMA20'] = df['Close'].rolling(window=20).mean()
+    df['stddev'] = df['Close'].rolling(window=20).std()
+    df['BB_Upper'] = df['SMA20'] + (df['stddev'] * 2)
+    df['BB_Lower'] = df['SMA20'] - (df['stddev'] * 2)
+    
+    # 3. RSI
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
     loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
     df['RSI'] = 100 - (100 / (1 + (gain / (loss + 1e-10))))
     
+    # 4. MACD
+    df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
+    df['EMA26'] = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = df['EMA12'] - df['EMA26']
+    df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    df['MACD_Hist'] = df['MACD'] - df['Signal_Line']
     return df
 
 # 4. Main Display Logic
@@ -75,95 +86,71 @@ data = yf.download(ticker_symbol, period=time_period, interval=time_interval, pr
 
 if not data.empty:
     df = apply_indicators(data)
-    ltp = df['Close'].iloc[-1]
-    change = ltp - df['Close'].iloc[-2]
-    pct = (change / df['Close'].iloc[-2]) * 100
     
+    # Calculations for Metrics
+    ltp = df['Close'].iloc[-1]
+    prev_close = df['Close'].iloc[-2]
+    change = ltp - prev_close
+    pct_change = (change / prev_close) * 100
+    
+    # --- AI Sideboard Suggestions ---
+    with st.sidebar:
+        st.markdown("---")
+        st.header("🤖 AI Trade Signal")
+        last = df.iloc[-1]
+        if last['Close'] > last['VWAP'] and last['MACD'] > last['Signal_Line']:
+            st.success("### 🟢 STRONG BUY\nPrice > VWAP + Bullish MACD.")
+        elif last['Close'] < last['VWAP'] and last['MACD'] < last['Signal_Line']:
+            st.error("### 🔴 STRONG SELL\nPrice < VWAP + Bearish MACD.")
+        else:
+            st.warning("### ⚪ HOLD / WAIT\nMixed signals. No clear trend.")
+
+    # Main Screen Top Row
     st.subheader(f"📊 {selected_stock}")
     
-    # Header Metrics
+    # 🌟 NEW PRICE METRICS ROW 🌟
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("LTP", f"₹{ltp:.2f}", f"{change:.2f} ({pct:.2f}%)")
-    m2.metric("High", f"₹{df['High'].max():.2f}")
-    m3.metric("Low", f"₹{df['Low'].min():.2f}")
-    m4.metric("Avg Volume", f"{int(df['Volume'].mean()):,}")
+    m1.metric("LTP (Price)", f"₹{ltp:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
+    m2.metric("Day High", f"₹{df['High'].max():.2f}")
+    m3.metric("Day Low", f"₹{df['Low'].min():.2f}")
+    m4.metric("Volume", f"{df['Volume'].iloc[-1]:,}")
 
-    # --- THE PERFECT BULLISH GREEN & BEARISH RED CHART ---
-    rows = 2 if show_rsi else 1
-    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.01, 
-                        row_heights=[0.85, 0.15] if show_rsi else [1],
-                        specs=[[{"secondary_y": True}], [{"secondary_y": False}]] if show_rsi else [[{"secondary_y": True}]])
+    # Chart Setup
+    rows = 1
+    if show_rsi: rows += 1
+    if show_macd: rows += 1
+    row_heights = [0.6] + [0.2] * (rows - 1)
+    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
 
-    # 🟢 BRIGHT BULLISH GREEN & 🔴 STRONG BEARISH RED
-    up_c = '#00FF00'   # Pure Green
-    down_c = '#FF0000' # Pure Red
-    border_w = 1.0     # Clean sharp borders
+    # 1. Price Chart
+    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Price'), row=1, col=1)
+    if show_vwap:
+        fig.add_trace(go.Scatter(x=df.index, y=df['VWAP'], line=dict(color='orange', width=2), name='VWAP'), row=1, col=1)
+    if show_bb:
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'], line=dict(color='rgba(173, 204, 255, 0.3)', width=1), name='BB Upper'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Lower'], line=dict(color='rgba(173, 204, 255, 0.3)', width=1), name='BB Lower'), row=1, col=1)
 
-    # 1. THE PERFECT CANDLES (Green & Red)
-    fig.add_trace(go.Candlestick(
-        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-        name='Price',
-        increasing_fillcolor=up_c, increasing_line_color=up_c,
-        decreasing_fillcolor=down_c, decreasing_line_color=down_c,
-        line=dict(width=border_w)
-    ), row=1, col=1, secondary_y=True)
-
-    # 2. VOLUME OVERLAY
-    if show_volume:
-        vol_colors = [up_c if c >= o else down_c for o, c in zip(df['Open'], df['Close'])]
-        fig.add_trace(go.Bar(
-            x=df.index, y=df['Volume'], name='Volume',
-            marker_color=vol_colors, opacity=0.15, showlegend=False
-        ), row=1, col=1, secondary_y=False)
-
-    # 3. TECHNICAL LINES
-    if show_indicators:
-        fig.add_trace(go.Scatter(x=df.index, y=df['EMA9'], line=dict(color='#00e5ff', width=1.5), name='9 EMA'), row=1, col=1, secondary_y=True)
-        fig.add_trace(go.Scatter(x=df.index, y=df['EMA21'], line=dict(color='#ffeb3b', width=1.5), name='21 EMA'), row=1, col=1, secondary_y=True)
-        fig.add_trace(go.Scatter(x=df.index, y=df['VWAP'], line=dict(color='#ff9800', width=1.8), name='VWAP'), row=1, col=1, secondary_y=True)
-
-    # 4. RSI SUBPLOT
+    # 2. RSI
+    curr_row = 2
     if show_rsi:
-        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#b388ff', width=2), name='RSI'), row=2, col=1)
-        fig.add_hline(y=70, line_dash="dash", line_color=down_c, row=2, col=1, opacity=0.3)
-        fig.add_hline(y=30, line_dash="dash", line_color=up_c, row=2, col=1, opacity=0.3)
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='magenta', width=1.5), name='RSI'), row=curr_row, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="red", row=curr_row, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="green", row=curr_row, col=1)
+        curr_row += 1
 
-    # --- HD LAYOUT ENGINE ---
-    fig.update_layout(
-        height=850,
-        template="plotly_dark",
-        xaxis_rangeslider_visible=False,
-        showlegend=False,
-        margin=dict(l=10, r=60, t=10, b=10),
-        plot_bgcolor='#0d1117', # Deepest Dark Background
-        paper_bgcolor='#0d1117',
-        uirevision=ticker_symbol,
-        dragmode='pan',
-        hovermode='x unified'
-    )
+    # 3. MACD
+    if show_macd:
+        fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], line=dict(color='cyan'), name='MACD'), row=curr_row, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Signal_Line'], line=dict(color='yellow'), name='Signal'), row=curr_row, col=1)
+        colors = ['green' if val > 0 else 'red' for val in df['MACD_Hist']]
+        fig.add_trace(go.Bar(x=df.index, y=df['MACD_Hist'], marker_color=colors, name='Hist'), row=curr_row, col=1)
 
-    # Axis Styling
-    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', 
-                     rangebreaks=[dict(bounds=["sat", "mon"]), dict(bounds=[15.5, 9.25], pattern="hour")])
-    
-    # Volume Axis
-    fig.update_yaxes(showgrid=False, showticklabels=False, row=1, col=1, secondary_y=False, range=[0, df['Volume'].max()*5])
-    
-    # Price Axis (Visible on Right)
-    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', side='right', tickformat='.2f', row=1, col=1, secondary_y=True)
+    fig.update_layout(height=800, template="plotly_dark", xaxis_rangeslider_visible=False, uirevision=ticker_symbol, dragmode='pan', margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
 
-    # Price Label Annotation
-    fig.add_annotation(
-        xref="paper", yref="y2", x=1.02, y=ltp,
-        text=f"<b>{ltp:.2f}</b>", showarrow=False, 
-        bgcolor=up_c if change >= 0 else down_c, font=dict(color="black" if change >= 0 else "white", size=13),
-        bordercolor="white", borderpad=4, row=1, col=1
-    )
-
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
-
+    # Auto-refresh logic
     if live_mode:
         time.sleep(30)
         st.rerun()
 else:
-    st.error("No data available for this selection.")
+    st.error("Select a stock to see data.")
