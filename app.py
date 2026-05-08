@@ -113,4 +113,44 @@ if not data.empty:
     m1.metric("LTP (Price)", f"₹{ltp:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
     m2.metric("Day High", f"₹{df['High'].max():.2f}")
     m3.metric("Day Low", f"₹{df['Low'].min():.2f}")
-    m4.metric("Volume", f"{df['Volume'].iloc[-
+    m4.metric("Volume", f"{df['Volume'].iloc[-1]:,}")
+
+    # Chart Setup
+    rows = 1
+    if show_rsi: rows += 1
+    if show_macd: rows += 1
+    row_heights = [0.6] + [0.2] * (rows - 1)
+    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
+
+    # 1. Price Chart
+    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Price'), row=1, col=1)
+    if show_vwap:
+        fig.add_trace(go.Scatter(x=df.index, y=df['VWAP'], line=dict(color='orange', width=2), name='VWAP'), row=1, col=1)
+    if show_bb:
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Upper'], line=dict(color='rgba(173, 204, 255, 0.3)', width=1), name='BB Upper'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Lower'], line=dict(color='rgba(173, 204, 255, 0.3)', width=1), name='BB Lower'), row=1, col=1)
+
+    # 2. RSI
+    curr_row = 2
+    if show_rsi:
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='magenta', width=1.5), name='RSI'), row=curr_row, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="red", row=curr_row, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="green", row=curr_row, col=1)
+        curr_row += 1
+
+    # 3. MACD
+    if show_macd:
+        fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], line=dict(color='cyan'), name='MACD'), row=curr_row, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['Signal_Line'], line=dict(color='yellow'), name='Signal'), row=curr_row, col=1)
+        colors = ['green' if val > 0 else 'red' for val in df['MACD_Hist']]
+        fig.add_trace(go.Bar(x=df.index, y=df['MACD_Hist'], marker_color=colors, name='Hist'), row=curr_row, col=1)
+
+    fig.update_layout(height=800, template="plotly_dark", xaxis_rangeslider_visible=False, uirevision=ticker_symbol, dragmode='pan', margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+
+    # Auto-refresh logic
+    if live_mode:
+        time.sleep(30)
+        st.rerun()
+else:
+    st.error("Select a stock to see data.")
