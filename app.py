@@ -6,9 +6,9 @@ import pandas as pd
 import requests
 import io
 
-# 1. Page Configuration
-st.set_page_config(page_title="Pro Trading Terminal", layout="wide")
-st.title("📈 My Pro Trading Terminal V8 (Clean White & Smooth Pan)")
+# 1. Page Configuration (Dark Mode Default)
+st.set_page_config(page_title="Pro Trading Terminal", layout="wide", initial_sidebar_state="expanded")
+st.title("🌌 My Pro Trading Terminal V9 (Ultra Dark)")
 
 # --- Robust NSE Ticker Fetching ---
 @st.cache_data(ttl=86400)
@@ -82,46 +82,49 @@ if not data.empty:
                         vertical_spacing=0.05, 
                         row_width=[0.2, 0.2, 0.6] if show_rsi else [0.3, 0.7])
 
-    # Broker-style Colors
-    bull_color = '#00C853' # Bright Groww Green
-    bear_color = '#FF5252' # Bright Red
+    # --- NEON 3D-STYLE COLORS ---
+    bull_color = '#00FF00' # Neon Glowing Green
+    bear_color = '#FF0033' # Deep Glowing Red
 
+    # Candlestick with thicker lines to simulate depth
     fig.add_trace(go.Candlestick(
         x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], 
         name='Price',
         increasing_line_color=bull_color, decreasing_line_color=bear_color,
-        increasing_fillcolor=bull_color, decreasing_fillcolor=bear_color
+        increasing_fillcolor=bull_color, decreasing_fillcolor=bear_color,
+        line=dict(width=2) # Makes the wicks thicker for a 3D pop effect
     ), row=1, col=1)
 
+    # Thick, glowing indicator lines
     if show_sma:
-        fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], line=dict(color='#FF8C00', width=2), name='SMA 20'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], line=dict(color='#FFD700', width=3), name='SMA 20'), row=1, col=1)
     if show_ema:
-        fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], line=dict(color='#2962FF', width=2), name='EMA 50'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], line=dict(color='#00E5FF', width=3), name='EMA 50'), row=1, col=1)
 
     colors = [bull_color if c >= o else bear_color for o, c in zip(data['Open'], data['Close'])]
-    fig.add_trace(go.Bar(x=data.index, y=data['Volume'], marker_color=colors, name='Volume'), row=2, col=1)
+    fig.add_trace(go.Bar(x=data.index, y=data['Volume'], marker_color=colors, name='Volume', opacity=0.8), row=2, col=1)
 
     if show_rsi:
-        fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='#AA00FF', width=2), name='RSI'), row=3, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='#B026FF', width=2), name='RSI'), row=3, col=1)
         fig.add_hline(y=70, line_dash="dash", line_color=bear_color, row=3, col=1)
         fig.add_hline(y=30, line_dash="dash", line_color=bull_color, row=3, col=1)
 
-    # --- THE MAGIC FIX FOR SMOOTH PANNING & WHITE THEME ---
+    # --- PURE BLACK THEME & PANNING ---
     fig.update_layout(
         height=850, 
-        template="plotly_white", # Clean White Background
+        template="plotly_dark", 
         xaxis_rangeslider_visible=False, 
         showlegend=True,
-        dragmode='pan',          # <--- THIS FIXES THE LEFT/RIGHT MOVEMENT!
-        hovermode='x unified',   # Professional crosshair hover effect
-        plot_bgcolor='white',
-        paper_bgcolor='white',
+        dragmode='pan',          # Smooth dragging
+        hovermode='x unified',   
+        plot_bgcolor='#000000',  # PURE BLACK BACKGROUND
+        paper_bgcolor='#000000', # PURE BLACK BORDERS
         margin=dict(l=20, r=20, t=40, b=20)
     )
     
-    # Faint grid lines so they don't distract from the candles
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#E0E0E0')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#E0E0E0')
+    # Hide grid lines for that floating 3D screen look
+    fig.update_xaxes(showgrid=False)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#1A1A1A') # Extremely faint grid
     
     chart_config = {
         'scrollZoom': True,      
