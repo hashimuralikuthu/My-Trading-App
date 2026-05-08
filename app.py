@@ -7,10 +7,10 @@ import os
 import time
 
 # 1. Page Configuration
-st.set_page_config(page_title="Pro Terminal HD", layout="wide")
-st.title("💎 Pro Trading Terminal V32 (Perfect HD Candles)")
+st.set_page_config(page_title="Pro Terminal V33", layout="wide")
+st.title("💎 Pro Trading Terminal V33 (Green & Red Edition)")
 
-# --- V32: DATA ENGINE ---
+# --- V33: DATA ENGINE ---
 @st.cache_data
 def get_local_stock_list():
     file_path = 'EQUITY_L.csv'
@@ -88,18 +88,18 @@ if not data.empty:
     m3.metric("Low", f"₹{df['Low'].min():.2f}")
     m4.metric("Avg Volume", f"{int(df['Volume'].mean()):,}")
 
-    # --- THE PERFECT HD CHART ---
+    # --- THE PERFECT BULLISH GREEN & BEARISH RED CHART ---
     rows = 2 if show_rsi else 1
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.01, 
                         row_heights=[0.85, 0.15] if show_rsi else [1],
                         specs=[[{"secondary_y": True}], [{"secondary_y": False}]] if show_rsi else [[{"secondary_y": True}]])
 
-    # HD Colors
-    up_c = '#26a69a'   # Emerald
-    down_c = '#ef5350' # Rose
-    border_w = 1.2
+    # 🟢 BRIGHT BULLISH GREEN & 🔴 STRONG BEARISH RED
+    up_c = '#00FF00'   # Pure Green
+    down_c = '#FF0000' # Pure Red
+    border_w = 1.0     # Clean sharp borders
 
-    # 1. THE PERFECT CANDLES (Main Plot)
+    # 1. THE PERFECT CANDLES (Green & Red)
     fig.add_trace(go.Candlestick(
         x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
         name='Price',
@@ -108,12 +108,12 @@ if not data.empty:
         line=dict(width=border_w)
     ), row=1, col=1, secondary_y=True)
 
-    # 2. VOLUME OVERLAY (Translucent bars at bottom of price chart)
+    # 2. VOLUME OVERLAY
     if show_volume:
         vol_colors = [up_c if c >= o else down_c for o, c in zip(df['Open'], df['Close'])]
         fig.add_trace(go.Bar(
             x=df.index, y=df['Volume'], name='Volume',
-            marker_color=vol_colors, opacity=0.2, showlegend=False
+            marker_color=vol_colors, opacity=0.15, showlegend=False
         ), row=1, col=1, secondary_y=False)
 
     # 3. TECHNICAL LINES
@@ -125,8 +125,8 @@ if not data.empty:
     # 4. RSI SUBPLOT
     if show_rsi:
         fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#b388ff', width=2), name='RSI'), row=2, col=1)
-        fig.add_hline(y=70, line_dash="dash", line_color="#ef5350", row=2, col=1, opacity=0.3)
-        fig.add_hline(y=30, line_dash="dash", line_color="#26a69a", row=2, col=1, opacity=0.3)
+        fig.add_hline(y=70, line_dash="dash", line_color=down_c, row=2, col=1, opacity=0.3)
+        fig.add_hline(y=30, line_dash="dash", line_color=up_c, row=2, col=1, opacity=0.3)
 
     # --- HD LAYOUT ENGINE ---
     fig.update_layout(
@@ -135,8 +135,8 @@ if not data.empty:
         xaxis_rangeslider_visible=False,
         showlegend=False,
         margin=dict(l=10, r=60, t=10, b=10),
-        plot_bgcolor='#131722', # TV Background
-        paper_bgcolor='#131722',
+        plot_bgcolor='#0d1117', # Deepest Dark Background
+        paper_bgcolor='#0d1117',
         uirevision=ticker_symbol,
         dragmode='pan',
         hovermode='x unified'
@@ -146,17 +146,17 @@ if not data.empty:
     fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', 
                      rangebreaks=[dict(bounds=["sat", "mon"]), dict(bounds=[15.5, 9.25], pattern="hour")])
     
-    # Primary Y Axis (Volume - Hidden)
-    fig.update_yaxes(showgrid=False, showticklabels=False, row=1, col=1, secondary_y=False, range=[0, df['Volume'].max()*4])
+    # Volume Axis
+    fig.update_yaxes(showgrid=False, showticklabels=False, row=1, col=1, secondary_y=False, range=[0, df['Volume'].max()*5])
     
-    # Secondary Y Axis (Price - Visible on Right)
+    # Price Axis (Visible on Right)
     fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', side='right', tickformat='.2f', row=1, col=1, secondary_y=True)
 
     # Price Label Annotation
     fig.add_annotation(
         xref="paper", yref="y2", x=1.02, y=ltp,
         text=f"<b>{ltp:.2f}</b>", showarrow=False, 
-        bgcolor=up_c if change >= 0 else down_c, font=dict(color="white", size=13),
+        bgcolor=up_c if change >= 0 else down_c, font=dict(color="black" if change >= 0 else "white", size=13),
         bordercolor="white", borderpad=4, row=1, col=1
     )
 
