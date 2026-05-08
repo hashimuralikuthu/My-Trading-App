@@ -10,7 +10,7 @@ import time
 # 1. Page Configuration
 st.set_page_config(page_title="Pro Trading Terminal", layout="wide")
 st.title("🔴 My Pro Trading Terminal V11 (Smart Search)")
-df = pd.read_csv('EQUITY_L.csv')
+
 # --- SMART NSE TICKER FETCHING (LIKE GROWW) ---
 @st.cache_data(ttl=86400)
 def get_all_nse_tickers():
@@ -18,7 +18,7 @@ def get_all_nse_tickers():
         url = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
         headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url, headers=headers, timeout=15)
-        
+        df = pd.read_csv(io.StringIO(r.text))
         df = df[df['SERIES'] == 'EQ']
         
         # NEW: Combine Company Name and Symbol (e.g., "Zomato Limited (ZOMATO)")
