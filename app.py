@@ -7,10 +7,10 @@ import os
 import time
 
 # 1. Page Configuration
-st.set_page_config(page_title="Intraday Pro Terminal", layout="wide")
-st.title("🔴 Pro Trading Terminal V31 (Master Charts)")
+st.set_page_config(page_title="Pro Terminal HD", layout="wide")
+st.title("💎 Pro Trading Terminal V32 (Perfect HD Candles)")
 
-# --- V31: DATA ENGINE ---
+# --- V32: DATA ENGINE ---
 @st.cache_data
 def get_local_stock_list():
     file_path = 'EQUITY_L.csv'
@@ -40,11 +40,10 @@ with col2:
     time_interval = st.selectbox("Candle", ["1m", "5m", "15m", "30m", "1h", "1d"], index=1)
 
 st.sidebar.markdown("---")
-st.sidebar.header("🛠️ Chart Indicators")
-show_ema9 = st.sidebar.checkbox("9 EMA (Signal)", value=True)
-show_ema21 = st.sidebar.checkbox("21 EMA (Trend)", value=True)
-show_vwap = st.sidebar.checkbox("VWAP (Intraday)", value=True)
-show_rsi = st.sidebar.checkbox("RSI", value=True)
+st.sidebar.header("🛠️ Master Tools")
+show_indicators = st.sidebar.toggle("Show EMAs & VWAP", value=True)
+show_volume = st.sidebar.toggle("Show Volume Overlay", value=True)
+show_rsi = st.sidebar.toggle("Show RSI Strength", value=True)
 
 st.sidebar.markdown("---")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
@@ -61,7 +60,7 @@ def apply_indicators(df):
     # VWAP
     v = df['Volume'].values
     p = (df['High'] + df['Low'] + df['Close']).values / 3
-    df['VWAP'] = (p * v).cumsum() / v.cumsum()
+    df['VWAP'] = (p * v).cumsum() / (v.cumsum() + 1e-10)
     
     # RSI
     delta = df['Close'].diff()
@@ -76,89 +75,95 @@ data = yf.download(ticker_symbol, period=time_period, interval=time_interval, pr
 
 if not data.empty:
     df = apply_indicators(data)
-    
-    # Price Metrics
     ltp = df['Close'].iloc[-1]
     change = ltp - df['Close'].iloc[-2]
     pct = (change / df['Close'].iloc[-2]) * 100
     
     st.subheader(f"📊 {selected_stock}")
     
+    # Header Metrics
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Current Price", f"₹{ltp:.2f}", f"{change:.2f} ({pct:.2f}%)")
-    m2.metric("Day High", f"₹{df['High'].max():.2f}")
-    m3.metric("Day Low", f"₹{df['Low'].min():.2f}")
-    m4.metric("Live Vol", f"{df['Volume'].iloc[-1]:,}")
+    m1.metric("LTP", f"₹{ltp:.2f}", f"{change:.2f} ({pct:.2f}%)")
+    m2.metric("High", f"₹{df['High'].max():.2f}")
+    m3.metric("Low", f"₹{df['Low'].min():.2f}")
+    m4.metric("Avg Volume", f"{int(df['Volume'].mean()):,}")
 
-    # --- THE BEST CANDLE STYLING ---
+    # --- THE PERFECT HD CHART ---
     rows = 2 if show_rsi else 1
-    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.02, row_heights=[0.8, 0.2] if show_rsi else [1])
+    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.01, 
+                        row_heights=[0.85, 0.15] if show_rsi else [1],
+                        specs=[[{"secondary_y": True}], [{"secondary_y": False}]] if show_rsi else [[{"secondary_y": True}]])
 
-    # Professional Colors
-    up_fill = '#26a69a'   # TradingView Green
-    up_line = '#004d40'   # Deep Green Border
-    down_fill = '#ef5350' # TradingView Red
-    down_line = '#880e4f' # Deep Red Border
+    # HD Colors
+    up_c = '#26a69a'   # Emerald
+    down_c = '#ef5350' # Rose
+    border_w = 1.2
 
-    # 1. THE CANDLESTICK TRACE
+    # 1. THE PERFECT CANDLES (Main Plot)
     fig.add_trace(go.Candlestick(
-        x=df.index,
-        open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+        x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
         name='Price',
-        increasing_fillcolor=up_fill, increasing_line_color=up_line,
-        decreasing_fillcolor=down_fill, decreasing_line_color=down_line,
-        line=dict(width=1) # Sharper Wicks
-    ), row=1, col=1)
+        increasing_fillcolor=up_c, increasing_line_color=up_c,
+        decreasing_fillcolor=down_c, decreasing_line_color=down_c,
+        line=dict(width=border_w)
+    ), row=1, col=1, secondary_y=True)
 
-    # Moving Averages (Smooth hugging lines)
-    if show_ema9:
-        fig.add_trace(go.Scatter(x=df.index, y=df['EMA9'], line=dict(color='#00e5ff', width=1.5), name='9 EMA'), row=1, col=1)
-    if show_ema21:
-        fig.add_trace(go.Scatter(x=df.index, y=df['EMA21'], line=dict(color='#ffeb3b', width=1.5), name='21 EMA'), row=1, col=1)
-    if show_vwap:
-        fig.add_trace(go.Scatter(x=df.index, y=df['VWAP'], line=dict(color='#ff9800', width=1.5, dash='dash'), name='VWAP'), row=1, col=1)
+    # 2. VOLUME OVERLAY (Translucent bars at bottom of price chart)
+    if show_volume:
+        vol_colors = [up_c if c >= o else down_c for o, c in zip(df['Open'], df['Close'])]
+        fig.add_trace(go.Bar(
+            x=df.index, y=df['Volume'], name='Volume',
+            marker_color=vol_colors, opacity=0.2, showlegend=False
+        ), row=1, col=1, secondary_y=False)
 
-    # Current Price Marker Line
-    fig.add_hline(y=ltp, line_width=1, line_dash="dash", line_color="white", row=1, col=1, opacity=0.5)
+    # 3. TECHNICAL LINES
+    if show_indicators:
+        fig.add_trace(go.Scatter(x=df.index, y=df['EMA9'], line=dict(color='#00e5ff', width=1.5), name='9 EMA'), row=1, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=df.index, y=df['EMA21'], line=dict(color='#ffeb3b', width=1.5), name='21 EMA'), row=1, col=1, secondary_y=True)
+        fig.add_trace(go.Scatter(x=df.index, y=df['VWAP'], line=dict(color='#ff9800', width=1.8), name='VWAP'), row=1, col=1, secondary_y=True)
 
-    # 2. RSI Subplot
+    # 4. RSI SUBPLOT
     if show_rsi:
-        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#9c27b0', width=2), name='RSI'), row=2, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#b388ff', width=2), name='RSI'), row=2, col=1)
         fig.add_hline(y=70, line_dash="dash", line_color="#ef5350", row=2, col=1, opacity=0.3)
         fig.add_hline(y=30, line_dash="dash", line_color="#26a69a", row=2, col=1, opacity=0.3)
 
-    # --- THE "PERFECT" LAYOUT SETTINGS ---
+    # --- HD LAYOUT ENGINE ---
     fig.update_layout(
-        height=800,
+        height=850,
         template="plotly_dark",
         xaxis_rangeslider_visible=False,
         showlegend=False,
-        margin=dict(l=10, r=50, t=10, b=10), # Added space on right for price
-        plot_bgcolor='#131722',
+        margin=dict(l=10, r=60, t=10, b=10),
+        plot_bgcolor='#131722', # TV Background
         paper_bgcolor='#131722',
         uirevision=ticker_symbol,
-        dragmode='pan'
+        dragmode='pan',
+        hovermode='x unified'
     )
 
-    fig.update_xaxes(
-        showgrid=True, gridwidth=0.5, gridcolor='#2a2e39',
-        rangebreaks=[dict(bounds=["sat", "mon"]), dict(bounds=[15.5, 9.25], pattern="hour")]
-    )
-    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', side='right', tickformat='.2f')
+    # Axis Styling
+    fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', 
+                     rangebreaks=[dict(bounds=["sat", "mon"]), dict(bounds=[15.5, 9.25], pattern="hour")])
+    
+    # Primary Y Axis (Volume - Hidden)
+    fig.update_yaxes(showgrid=False, showticklabels=False, row=1, col=1, secondary_y=False, range=[0, df['Volume'].max()*4])
+    
+    # Secondary Y Axis (Price - Visible on Right)
+    fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='#2a2e39', side='right', tickformat='.2f', row=1, col=1, secondary_y=True)
 
-    # Add Price Label on right axis
+    # Price Label Annotation
     fig.add_annotation(
-        xref="paper", yref="y", x=1.02, y=ltp,
-        text=f"<b>{ltp:.2f}</b>",
-        showarrow=False, bgcolor=up_fill if change >= 0 else down_fill,
-        font=dict(color="white", size=12), bordercolor="white", borderpad=4,
-        row=1, col=1
+        xref="paper", yref="y2", x=1.02, y=ltp,
+        text=f"<b>{ltp:.2f}</b>", showarrow=False, 
+        bgcolor=up_c if change >= 0 else down_c, font=dict(color="white", size=13),
+        bordercolor="white", borderpad=4, row=1, col=1
     )
 
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
 
     if live_mode:
         time.sleep(30)
         st.rerun()
 else:
-    st.error("Select a stock to view the master chart.")
+    st.error("No data available for this selection.")
