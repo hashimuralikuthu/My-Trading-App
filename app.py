@@ -7,36 +7,29 @@ import os
 
 # 1. Page Configuration
 st.set_page_config(page_title="Pro Trading Terminal", layout="wide")
-st.title("🔴 My Pro Trading Terminal V24 (Total Market Sync)")
+st.title("🔴 My Pro Trading Terminal V25 (AI Signals)")
 
-# --- V24: LOCAL CSV ENGINE WITH SPACE FIX ---
+# --- V25: LOCAL CSV ENGINE WITH SPACE FIX ---
 @st.cache_data
 def get_local_stock_list():
     file_path = 'EQUITY_L.csv'
     
-    # Check if the file is uploaded to GitHub
     if os.path.exists(file_path):
         try:
             df = pd.read_csv(file_path)
-            
-            # THE FIX: Strip hidden spaces from the NSE file's column names
+            # Strip hidden spaces from the NSE file's column names
             df.columns = df.columns.str.strip()
-            
             # Filter to show only Equity series
             df = df[df['SERIES'] == 'EQ'].copy()
-            
             # Combine Symbol and Name for a clean search bar
             df['Display Name'] = df['SYMBOL'] + " - " + df['NAME OF COMPANY']
             df['Yahoo Ticker'] = df['SYMBOL'].astype(str) + ".NS"
-            
-            # Create a dictionary mapping
             return dict(zip(df['Display Name'], df['Yahoo Ticker']))
             
         except Exception as e:
             st.error(f"Error reading CSV: {e}")
             return {"RELIANCE - Reliance Industries": "RELIANCE.NS"}
     else:
-        # Emergency Fallback if the file isn't uploaded properly
         st.error("⚠️ 'EQUITY_L.csv' not found. Please ensure it is uploaded to your GitHub repository.")
         return {
             "IDEA - Vodafone Idea": "IDEA.NS",
@@ -57,7 +50,6 @@ selected_display_name = st.sidebar.selectbox(
     index=0
 )
 
-# Extract the actual symbol for yfinance
 ticker_symbol = stock_dict[selected_display_name]
 
 col1, col2 = st.sidebar.columns(2)
@@ -88,15 +80,42 @@ def display_terminal():
         st.error(f"Market data for {ticker_symbol} is currently unavailable.")
         return
         
-    # Fix MultiIndex for YFinance
     if isinstance(data.columns, pd.MultiIndex):
         data.columns = data.columns.get_level_values(0)
+
+    # Technical Indicators
+    data['SMA20'] = data['Close'].rolling(window=20).mean()
+    data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
+    
+    delta = data['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
+    rs = gain / loss
+    data['RSI'] = 100 - (100 / (1 + rs))
 
     # Metrics
     last_price = data['Close'].iloc[-1]
     prev_price = data['Close'].iloc[-2]
     change = last_price - prev_price
     pct_change = (change / prev_price) * 100
+    
+    current_rsi = data['RSI'].iloc[-1]
+    current_sma = data['SMA20'].iloc[-1]
+
+    # --- NEW FEATURE: AI TRADE SIGNAL IN SIDEBAR ---
+    with st.sidebar:
+        st.markdown("---")
+        st.header("🤖 AI Trade Signal")
+        
+        # Logic for Buy/Sell
+        if current_rsi > 70:
+            st.error("### 🔴 STRONG SELL\n**Reason:** RSI is Overbought (>70). Price is likely to drop.")
+        elif current_rsi < 30:
+            st.success("### 🟢 STRONG BUY\n**Reason:** RSI is Oversold (<30). Price is likely to bounce up.")
+        elif last_price > current_sma:
+            st.success("### 🟢 BUY (Bullish)\n**Reason:** Price is trading safely above the 20-day Average.")
+        else:
+            st.warning("### 🔴 SELL (Bearish)\n**Reason:** Price has fallen below the 20-day Average.")
 
     st.subheader(f"📊 {selected_display_name}")
 
@@ -106,17 +125,6 @@ def display_terminal():
     c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
     c4.metric("Volume", f"{data['Volume'].iloc[-1]:,}")
 
-    # Technical Indicators
-    data['SMA20'] = data['Close'].rolling(window=20).mean()
-    data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
-    
-    # Wilder's RSI 
-    delta = data['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
-    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
-    rs = gain / loss
-    data['RSI'] = 100 - (100 / (1 + rs))
-
     # Chart Setup
     rows = 2 if show_rsi else 1
     row_heights = [0.7, 0.3] if show_rsi else [1.0]
@@ -125,7 +133,6 @@ def display_terminal():
     bull_color = '#00FF00' 
     bear_color = '#FF0033' 
 
-    # 1. Main Candlestick
     fig.add_trace(go.Candlestick(
         x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], 
         name='Price', increasing_line_color=bull_color, decreasing_line_color=bear_color
@@ -136,13 +143,11 @@ def display_terminal():
     if show_ema:
         fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], line=dict(color='#00E5FF', width=1.5), name='EMA 50'), row=1, col=1)
 
-    # 2. RSI Subplot
     if show_rsi:
         fig.add_trace(go.Scatter(x=data.index, y=data['RSI'], line=dict(color='#B026FF', width=1.5), name='RSI'), row=2, col=1)
         fig.add_hline(y=70, line_dash="dash", line_color=bear_color, row=2, col=1)
         fig.add_hline(y=30, line_dash="dash", line_color=bull_color, row=2, col=1)
 
-    # Layout Styling
     fig.update_layout(
         height=750, 
         template="plotly_dark", 
@@ -150,14 +155,13 @@ def display_terminal():
         margin=dict(l=10, r=10, t=20, b=10),
         plot_bgcolor='#000000',
         paper_bgcolor='#000000',
-        dragmode='pan',            # <--- Allows clicking and dragging the chart left/right
-        uirevision=ticker_symbol   # <--- Stops the chart from resetting zoom when Live Mode updates
+        dragmode='pan',            
+        uirevision=ticker_symbol   
     )
     
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#1A1A1A') 
     
-    # <--- Enables the Mouse Scroll Wheel to Zoom in and out --->
     chart_config = {
         'scrollZoom': True,      
         'displayModeBar': True,  
