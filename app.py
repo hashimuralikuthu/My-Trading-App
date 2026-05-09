@@ -105,10 +105,12 @@ def load_data(ticker, period, interval):
 data = load_data(ticker_symbol, time_period, time_interval)
 
 # --- 4. PERFECT MARGIN & WALLET ENGINE ---
+import streamlit as st
+
 st.sidebar.markdown("---")
 st.sidebar.header("💼 Hashim Egod Wallet")
 
-# Initialize Capital
+# 1. Initialize Capital & State Variables
 if 'initial_capital' not in st.session_state:
     st.session_state['initial_capital'] = 100000.0
 if 'balance' not in st.session_state:
@@ -116,65 +118,87 @@ if 'balance' not in st.session_state:
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = {} 
 
-current_live_price = data['Close'].iloc[-1] if not data.empty else 0
-pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'entry': 0, 'margin': 0, 'type': None})
+# Ensure safe price extraction
+current_live_price = data['Close'].iloc[-1] if (not data.empty and 'Close' in data.columns) else 0.0
 
-# Calculate Unrealized P&L properly
-unrealized_pnl = 0
-if pos['qty'] != 0:
+# 2. Safely initialize and fetch the current ticker's position
+if ticker_symbol not in st.session_state['portfolio']:
+    st.session_state['portfolio'][ticker_symbol] = {'qty': 0, 'entry': 0.0, 'margin': 0.0, 'type': None}
+
+pos = st.session_state['portfolio'][ticker_symbol]
+
+# 3. Calculate Unrealized P&L
+unrealized_pnl = 0.0
+if pos['qty'] > 0:
     if pos['type'] == 'BUY':
         unrealized_pnl = (current_live_price - pos['entry']) * pos['qty']
     elif pos['type'] == 'SHORT':
         unrealized_pnl = (pos['entry'] - current_live_price) * pos['qty']
 
+# Calculate Wealth Metrics
 net_wealth = st.session_state['balance'] + pos['margin'] + unrealized_pnl
 total_pnl = net_wealth - st.session_state['initial_capital']
 
 # Display Metrics
-st.sidebar.metric("Total Net Worth", f"₹{net_wealth:,.2f}", delta=f"Total P/L: ₹{total_pnl:.2f}")
+st.sidebar.metric("Total Net Worth", f"₹{net_wealth:,.2f}", delta=f"Total P/L: ₹{total_pnl:,.2f}")
 
 with st.sidebar.expander("🔍 View Cash Breakdown"):
     st.write(f"💵 **Available Funds:** ₹{st.session_state['balance']:,.2f}")
     st.write(f"🔒 **Margin Locked:** ₹{pos['margin']:,.2f}")
     st.write(f"📈 **Live Trade P&L:** ₹{unrealized_pnl:,.2f}")
 
-# Trading Controls
+# 4. Trading Controls
 st.sidebar.markdown("---")
-trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
 
-if not data.empty:
+# Protect against missing data / zero pricing
+if current_live_price > 0:
+    trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
+    cost = current_live_price * trade_qty
+
     if pos['qty'] == 0:
         # If no position, show BUY and SHORT buttons
         col_buy, col_sell = st.sidebar.columns(2)
+        
         with col_buy:
             if st.button("🟢 BUY", use_container_width=True):
-                cost = current_live_price * trade_qty
                 if st.session_state['balance'] >= cost:
                     st.session_state['balance'] -= cost
-                    st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'BUY'}
+                    st.session_state['portfolio'][ticker_symbol] = {
+                        'qty': trade_qty, 
+                        'entry': current_live_price, 
+                        'margin': cost, 
+                        'type': 'BUY'
+                    }
                     st.rerun() 
                 else:
                     st.sidebar.error("Not enough funds!")
 
         with col_sell:
             if st.button("🔴 SHORT", use_container_width=True):
-                cost = current_live_price * trade_qty
                 if st.session_state['balance'] >= cost:
-                    # Deduct cost as margin so cash goes DOWN, not up!
+                    # Deduct cost as margin so cash goes DOWN
                     st.session_state['balance'] -= cost
-                    st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'SHORT'}
+                    st.session_state['portfolio'][ticker_symbol] = {
+                        'qty': trade_qty, 
+                        'entry': current_live_price, 
+                        'margin': cost, 
+                        'type': 'SHORT'
+                    }
                     st.rerun() 
                 else:
                     st.sidebar.error("Not enough funds!")
     else:
         # If position exists, show SQUARE OFF button
-        st.sidebar.info(f"You have an open {pos['type']} position of {pos['qty']} shares.")
+        st.sidebar.info(f"Open **{pos['type']}** position: {pos['qty']} shares @ ₹{pos['entry']:,.2f}")
+        
         if st.sidebar.button("⏹️ SQUARE OFF (Close Trade)", use_container_width=True, type="primary"):
-            # Return margin + profit (or - loss)
+            # Return margin + profit (or minus loss)
             st.session_state['balance'] += pos['margin'] + unrealized_pnl
-            st.session_state['portfolio'][ticker_symbol] = {'qty': 0, 'entry': 0, 'margin': 0, 'type': None}
+            # Reset position
+            st.session_state['portfolio'][ticker_symbol] = {'qty': 0, 'entry': 0.0, 'margin': 0.0, 'type': None}
             st.rerun()
-
+else:
+    st.sidebar.warning("Waiting for valid market data...")
 # 5. Dashboard Visuals & AI Calculations
 if not data.empty:
     last_price = data['Close'].iloc[-1]
