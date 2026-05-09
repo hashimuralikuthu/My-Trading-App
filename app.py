@@ -104,52 +104,65 @@ def load_data(ticker, period, interval):
 
 data = load_data(ticker_symbol, time_period, time_interval)
 
-# --- 4. NEW: PAPER TRADING VIRTUAL WALLET ---
+# --- 4. UPGRADED: EGOD SHORT-SELLING & PORTFOLIO ENGINE ---
 st.sidebar.markdown("---")
-st.sidebar.header("💼 Paper Trading Wallet")
+st.sidebar.header("💼 Hashim Egod Wallet")
 
+# Initialize Session States
 if 'balance' not in st.session_state:
     st.session_state['balance'] = 100000.0  
 if 'portfolio' not in st.session_state:
     st.session_state['portfolio'] = {}      
 
+# Display Total Wealth (Cash + Value of Holdings)
+current_live_price = data['Close'].iloc[-1] if not data.empty else 0
 st.sidebar.metric("Virtual Cash Available", f"₹{st.session_state['balance']:,.2f}")
 
-current_shares = st.session_state['portfolio'].get(ticker_symbol, 0)
-st.sidebar.write(f"**Shares Owned:** {current_shares} {current_stock_info['Symbol']}")
-
-trade_qty = st.sidebar.number_input("Quantity to Trade", min_value=1, value=10, step=1)
+# Trading Controls
+trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
 col_buy, col_sell = st.sidebar.columns(2)
 
+current_shares = st.session_state['portfolio'].get(ticker_symbol, 0)
+
 if not data.empty:
-    current_live_price = data['Close'].iloc[-1]
-    
     with col_buy:
-        if st.button("🟢 BUY", use_container_width=True):
+        if st.button("🟢 BUY / COVER", use_container_width=True):
             cost = current_live_price * trade_qty
-            if st.session_state['balance'] >= cost:
-                st.session_state['balance'] -= cost
-                st.session_state['portfolio'][ticker_symbol] = current_shares + trade_qty
-                st.sidebar.success(f"Bought {trade_qty} at ₹{current_live_price:.2f}")
-                time.sleep(1) # Small delay to show the success message
-                st.rerun() 
-            else:
-                st.sidebar.error("Not enough virtual cash!")
+            st.session_state['balance'] -= cost
+            st.session_state['portfolio'][ticker_symbol] = current_shares + trade_qty
+            st.sidebar.success(f"Executed: Bought {trade_qty}")
+            time.sleep(0.5)
+            st.rerun() 
 
     with col_sell:
-        if st.button("🔴 SELL", use_container_width=True):
-            if current_shares >= trade_qty:
-                revenue = current_live_price * trade_qty
-                st.session_state['balance'] += revenue
-                st.session_state['portfolio'][ticker_symbol] = current_shares - trade_qty
-                st.sidebar.success(f"Sold {trade_qty} at ₹{current_live_price:.2f}")
-                time.sleep(1)
-                st.rerun() 
-            else:
-                st.sidebar.error("Not enough shares!")
+        # PERFECT FIX: Removed the "not enough shares" check to allow Short Selling
+        if st.button("🔴 SELL / SHORT", use_container_width=True):
+            revenue = current_live_price * trade_qty
+            st.session_state['balance'] += revenue
+            st.session_state['portfolio'][ticker_symbol] = current_shares - trade_qty
+            st.sidebar.success(f"Executed: Shorted {trade_qty}")
+            time.sleep(0.5)
+            st.rerun() 
 else:
-    st.sidebar.warning("Waiting for data...")
+    st.sidebar.warning("Market Closed / No Data")
 
+# --- LIVE PORTFOLIO SUMMARY TABLE ---
+st.sidebar.markdown("### 📋 Active Portfolio")
+portfolio_data = []
+for symbol, qty in st.session_state['portfolio'].items():
+    if qty != 0:
+        # Determine if Long or Short
+        pos_type = "LONG" if qty > 0 else "SHORT"
+        portfolio_data.append({"Stock": symbol, "Qty": qty, "Type": pos_type})
+
+if portfolio_data:
+    st.sidebar.table(pd.DataFrame(portfolio_data))
+    if st.sidebar.button("🗑️ Reset All Data"):
+        st.session_state['balance'] = 100000.0
+        st.session_state['portfolio'] = {}
+        st.rerun()
+else:
+    st.sidebar.info("No active positions.")
 # 5. Dashboard Visuals & AI Calculations
 if not data.empty:
     last_price = data['Close'].iloc[-1]
