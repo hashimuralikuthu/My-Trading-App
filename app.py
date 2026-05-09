@@ -8,8 +8,8 @@ import io
 import time
 
 # 1. Page Configuration
-st.set_page_config(page_title="Master Trading Terminal", layout="wide")
-st.title("👑 My Master Terminal V15 (With AI Verdict Box)")
+st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
+st.title("👑 Hashim Egod Trading Terminal V16")
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -114,7 +114,7 @@ if not data.empty:
     change = last_price - prev_price
     pct_change = (change / prev_price) * 100
 
-    # Indicator Calculations (Moved up so the Verdict Box can use them immediately)
+    # Indicator Calculations
     data['SMA20'] = data['Close'].rolling(window=20).mean()
     data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
     
@@ -129,7 +129,7 @@ if not data.empty:
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
-    # --- NEW: MASSIVE VERDICT BOX ---
+    # --- MASSIVE VERDICT BOX ---
     if show_signals:
         latest = data.iloc[-1]
         buy_score = 0
