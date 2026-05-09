@@ -9,7 +9,7 @@ import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
-st.title("👑 Hashim Egod Trading Terminal V17")
+st.title("👑 Hashim Egod Trading Terminal V18 (Paper Trading Edition)")
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -82,7 +82,6 @@ show_ema = st.sidebar.checkbox("50 EMA (Support)", value=False)
 show_rsi = st.sidebar.checkbox("RSI (Overbought/Oversold)", value=True)
 show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True) 
 
-# --- NEW: TRADE SIGNAL TOGGLE ---
 st.sidebar.markdown("---")
 st.sidebar.header("🤖 AI Trade Assistant")
 show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True)
@@ -90,8 +89,6 @@ show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True)
 st.sidebar.markdown("---")
 st.sidebar.header("⚡ Live Engine")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
-if live_mode:
-    st.sidebar.success("Live Mode Active")
 
 # 3. Data Fetching Logic
 @st.cache_data(ttl=30)
@@ -107,53 +104,91 @@ def load_data(ticker, period, interval):
 
 data = load_data(ticker_symbol, time_period, time_interval)
 
-# 4. Dashboard Visuals & Calculations
+# --- 4. NEW: PAPER TRADING VIRTUAL WALLET ---
+st.sidebar.markdown("---")
+st.sidebar.header("💼 Paper Trading Wallet")
+
+if 'balance' not in st.session_state:
+    st.session_state['balance'] = 100000.0  
+if 'portfolio' not in st.session_state:
+    st.session_state['portfolio'] = {}      
+
+st.sidebar.metric("Virtual Cash Available", f"₹{st.session_state['balance']:,.2f}")
+
+current_shares = st.session_state['portfolio'].get(ticker_symbol, 0)
+st.sidebar.write(f"**Shares Owned:** {current_shares} {current_stock_info['Symbol']}")
+
+trade_qty = st.sidebar.number_input("Quantity to Trade", min_value=1, value=10, step=1)
+col_buy, col_sell = st.sidebar.columns(2)
+
+if not data.empty:
+    current_live_price = data['Close'].iloc[-1]
+    
+    with col_buy:
+        if st.button("🟢 BUY", use_container_width=True):
+            cost = current_live_price * trade_qty
+            if st.session_state['balance'] >= cost:
+                st.session_state['balance'] -= cost
+                st.session_state['portfolio'][ticker_symbol] = current_shares + trade_qty
+                st.sidebar.success(f"Bought {trade_qty} at ₹{current_live_price:.2f}")
+                time.sleep(1) # Small delay to show the success message
+                st.rerun() 
+            else:
+                st.sidebar.error("Not enough virtual cash!")
+
+    with col_sell:
+        if st.button("🔴 SELL", use_container_width=True):
+            if current_shares >= trade_qty:
+                revenue = current_live_price * trade_qty
+                st.session_state['balance'] += revenue
+                st.session_state['portfolio'][ticker_symbol] = current_shares - trade_qty
+                st.sidebar.success(f"Sold {trade_qty} at ₹{current_live_price:.2f}")
+                time.sleep(1)
+                st.rerun() 
+            else:
+                st.sidebar.error("Not enough shares!")
+else:
+    st.sidebar.warning("Waiting for data...")
+
+# 5. Dashboard Visuals & AI Calculations
 if not data.empty:
     last_price = data['Close'].iloc[-1]
     prev_price = data['Close'].iloc[-2]
     change = last_price - prev_price
     pct_change = (change / prev_price) * 100
 
-    # Indicator Calculations
     data['SMA20'] = data['Close'].rolling(window=20).mean()
     data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
-    
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     data['RSI'] = 100 - (100 / (1 + rs))
-
     exp1 = data['Close'].ewm(span=12, adjust=False).mean()
     exp2 = data['Close'].ewm(span=26, adjust=False).mean()
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
-    # --- MASSIVE VERDICT BOX (OUT OF 10 POINTS) ---
+    # --- MASSIVE VERDICT BOX ---
     if show_signals:
         latest = data.iloc[-1]
-        buy_score = 0
-        sell_score = 0
+        buy_score, sell_score = 0, 0
         reasons = []
 
-        # RSI = 3 Points
         if pd.notna(latest['RSI']):
             if latest['RSI'] < 30: buy_score += 3; reasons.append("🟢 RSI is Oversold (<30) [+3 Points]")
             elif latest['RSI'] > 70: sell_score += 3; reasons.append("🔴 RSI is Overbought (>70) [+3 Points]")
 
-        # MACD = 4 Points
         if pd.notna(latest['MACD']) and pd.notna(latest['Signal']):
             if latest['MACD'] > latest['Signal']: buy_score += 4; reasons.append("🟢 MACD crossed above Signal Line [+4 Points]")
             elif latest['MACD'] < latest['Signal']: sell_score += 4; reasons.append("🔴 MACD crossed below Signal Line [+4 Points]")
 
-        # SMA = 3 Points
         if pd.notna(latest['SMA20']):
             if latest['Close'] > latest['SMA20']: buy_score += 3; reasons.append("🟢 Price is above 20 SMA (Uptrend) [+3 Points]")
             elif latest['Close'] < latest['SMA20']: sell_score += 3; reasons.append("🔴 Price is below 20 SMA (Downtrend) [+3 Points]")
 
-        # Render the custom HTML Box
         st.markdown("### 🤖 Live AI Verdict")
-        if buy_score >= 6: # Needs at least 6 out of 10 points
+        if buy_score >= 6:
             st.markdown(f"""
             <div style="background-color:rgba(0, 200, 83, 0.15); border: 2px solid #00C853; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                 <h1 style="color: #00C853; margin:0; font-size: 40px;">🟢 BUY NOW</h1>
@@ -168,7 +203,6 @@ if not data.empty:
             </div>
             """, unsafe_allow_html=True)
         else:
-            # If the score is less than 6 for either direction, it defaults to HOLD
             max_score = max(buy_score, sell_score)
             st.markdown(f"""
             <div style="background-color:rgba(255, 167, 38, 0.15); border: 2px solid #FFA726; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
@@ -178,19 +212,15 @@ if not data.empty:
             """, unsafe_allow_html=True)
             
         with st.expander("See AI Logic Breakdown (Total: 10 Points)"):
-            for r in reasons:
-                st.write(r)
-            if not reasons:
-                st.write("Not enough data to form a reason yet (wait for more candles).")
+            for r in reasons: st.write(r)
         st.markdown("---")
 
-    # Header and Stats
     st.subheader(f"📊 {current_stock_info['Name']} ({current_stock_info['Symbol']})")
     
-    with st.expander("ℹ️ Official Company Details (From NSE EQUITY_L.csv)"):
+    with st.expander("ℹ️ Official Company Details"):
         i1, i2, i3, i4 = st.columns(4)
         i1.write(f"**NSE Symbol:** {current_stock_info['Symbol']}")
-        i2.write(f"**ISIN Number:** {current_stock_info['ISIN']}")
+        i2.write(f"**ISIN:** {current_stock_info['ISIN']}")
         i3.write(f"**Listing Date:** {current_stock_info['Listing_Date']}")
         i4.write(f"**Face Value:** ₹{current_stock_info['Face_Value']}")
 
@@ -200,32 +230,20 @@ if not data.empty:
     c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
     st.markdown("---")
 
-    # Chart Generation
     active_subplots = 2 
     if show_rsi: active_subplots += 1
     if show_macd: active_subplots += 1
 
     row_heights = [0.5] + [0.5 / (active_subplots - 1)] * (active_subplots - 1)
-    fig = make_subplots(rows=active_subplots, cols=1, shared_xaxes=True, 
-                        vertical_spacing=0.03, row_heights=row_heights)
+    fig = make_subplots(rows=active_subplots, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
 
     current_row = 1
+    bull_color, bear_color, bg_color, grid_color, template = ('#00FF00', '#FF0033', '#000000', '#1A1A1A', "plotly_dark") if theme_choice == "Ultra Dark" else ('#00C853', '#FF5252', '#FFFFFF', '#E0E0E0', "plotly_white")
 
-    if theme_choice == "Ultra Dark":
-        bull_color, bear_color, bg_color, grid_color, template = '#00FF00', '#FF0033', '#000000', '#1A1A1A', "plotly_dark"
-    else:
-        bull_color, bear_color, bg_color, grid_color, template = '#00C853', '#FF5252', '#FFFFFF', '#E0E0E0', "plotly_white"
+    fig.add_trace(go.Candlestick(x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], name='Price', increasing_line_color=bull_color, decreasing_line_color=bear_color, increasing_fillcolor=bull_color, decreasing_fillcolor=bear_color), row=current_row, col=1)
 
-    fig.add_trace(go.Candlestick(
-        x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], 
-        name='Price', increasing_line_color=bull_color, decreasing_line_color=bear_color,
-        increasing_fillcolor=bull_color, decreasing_fillcolor=bear_color
-    ), row=current_row, col=1)
-
-    if show_sma:
-        fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], line=dict(color='#FFD700', width=2), name='SMA 20'), row=current_row, col=1)
-    if show_ema:
-        fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], line=dict(color='#00E5FF', width=2), name='EMA 50'), row=current_row, col=1)
+    if show_sma: fig.add_trace(go.Scatter(x=data.index, y=data['SMA20'], line=dict(color='#FFD700', width=2), name='SMA 20'), row=current_row, col=1)
+    if show_ema: fig.add_trace(go.Scatter(x=data.index, y=data['EMA50'], line=dict(color='#00E5FF', width=2), name='EMA 50'), row=current_row, col=1)
     current_row += 1
 
     colors = [bull_color if c >= o else bear_color for o, c in zip(data['Open'], data['Close'])]
@@ -245,67 +263,11 @@ if not data.empty:
         hist_colors = [bull_color if val >= 0 else bear_color for val in macd_hist]
         fig.add_trace(go.Bar(x=data.index, y=macd_hist, marker_color=hist_colors, name='Histogram'), row=current_row, col=1)
 
-    fig.update_layout(
-        height=900 if active_subplots > 2 else 700, template=template, xaxis_rangeslider_visible=False, showlegend=False,
-        dragmode='pan', hovermode='x unified', plot_bgcolor=bg_color, paper_bgcolor=bg_color, margin=dict(l=20, r=20, t=40, b=20)
-    )
+    fig.update_layout(height=900 if active_subplots > 2 else 700, template=template, xaxis_rangeslider_visible=False, showlegend=False, dragmode='pan', hovermode='x unified', plot_bgcolor=bg_color, paper_bgcolor=bg_color, margin=dict(l=20, r=20, t=40, b=20))
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=grid_color) 
-    
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False})
-
-else:
-    st.error(f"Error fetching data for {selected_display_name}.")
 
 if live_mode:
     time.sleep(30)
     st.rerun()
-# --- NEW: PAPER TRADING VIRTUAL WALLET ---
-st.sidebar.markdown("---")
-st.sidebar.header("💼 Paper Trading Wallet")
-
-# 1. Initialize the wallet if it doesn't exist yet
-if 'balance' not in st.session_state:
-    st.session_state['balance'] = 100000.0  # Start with ₹1 Lakh virtual money
-if 'portfolio' not in st.session_state:
-    st.session_state['portfolio'] = {}      # Track how many shares of what stock you own
-
-# Display Current Balance
-st.sidebar.metric("Virtual Cash Available", f"₹{st.session_state['balance']:,.2f}")
-
-# Show Current Holdings for the selected stock
-current_shares = st.session_state['portfolio'].get(ticker_symbol, 0)
-st.sidebar.write(f"**Shares Owned:** {current_shares} {ticker_symbol}")
-
-# 2. Buy and Sell Controls
-trade_qty = st.sidebar.number_input("Quantity to Trade", min_value=1, value=10, step=1)
-
-col_buy, col_sell = st.sidebar.columns(2)
-
-# Ensure we have data to get the current price before allowing a trade
-if not data.empty:
-    current_live_price = data['Close'].iloc[-1]
-    
-    with col_buy:
-        if st.button("🟢 BUY", use_container_width=True):
-            cost = current_live_price * trade_qty
-            if st.session_state['balance'] >= cost:
-                st.session_state['balance'] -= cost
-                st.session_state['portfolio'][ticker_symbol] = current_shares + trade_qty
-                st.sidebar.success(f"Bought {trade_qty} shares at ₹{current_live_price:.2f}")
-                st.rerun() # Refresh the screen to update balance
-            else:
-                st.sidebar.error("Not enough virtual cash!")
-
-    with col_sell:
-        if st.button("🔴 SELL", use_container_width=True):
-            if current_shares >= trade_qty:
-                revenue = current_live_price * trade_qty
-                st.session_state['balance'] += revenue
-                st.session_state['portfolio'][ticker_symbol] = current_shares - trade_qty
-                st.sidebar.success(f"Sold {trade_qty} shares at ₹{current_live_price:.2f}")
-                st.rerun() # Refresh the screen to update balance
-            else:
-                st.sidebar.error("You don't own enough shares to sell!")
-else:
-    st.sidebar.warning("Waiting for market data to enable trading...")
