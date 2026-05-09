@@ -208,3 +208,19 @@ else:
 if live_mode:
     time.sleep(30)
     st.rerun()
+import streamlit as st
+import pandas as pd
+
+# Sample data (replace with your actual data)
+data = {'Price': [10, 11, 12, 11, 13, 14, 13]}
+df = pd.DataFrame(data)
+
+# Calculate Moving Average
+df['MA'] = df['Price'].rolling(window=3).mean()
+
+# Display in Streamlit
+st.subheader("Moving Average Indicator")
+st.write(df)
+
+# FIXED: Added the missing quote around 'MA'
+st.line_chart(df[['Price', 'MA']])
