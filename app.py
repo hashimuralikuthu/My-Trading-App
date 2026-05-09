@@ -104,40 +104,43 @@ def load_data(ticker, period, interval):
 
 data = load_data(ticker_symbol, time_period, time_interval)
 
-# --- 4. UPGRADED: EGOD LIVE P&L ENGINE ---
+# --- 4. V22: HASHIM EGOD TOTAL WEALTH ENGINE ---
 st.sidebar.markdown("---")
 st.sidebar.header("💼 Hashim Egod Wallet")
 
-# 1. Initialize Advanced Session States
+# 1. Initialize Capital and States
+if 'initial_capital' not in st.session_state:
+    st.session_state['initial_capital'] = 100000.0
 if 'balance' not in st.session_state:
     st.session_state['balance'] = 100000.0  
 if 'portfolio' not in st.session_state:
-    st.session_state['portfolio'] = {} # Stores {ticker: {'qty': 0, 'avg_price': 0}}
+    st.session_state['portfolio'] = {} 
 
-# 2. Get Current Stock Stats
+# 2. Get Current Market Data
 current_live_price = data['Close'].iloc[-1] if not data.empty else 0
 pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'avg_price': 0})
 current_qty = pos['qty']
 avg_entry = pos['avg_price']
 
-# 3. Calculate Live Profit/Loss for the Current Stock
-unrealized_pnl = 0
-if current_qty != 0:
-    # Formula: (Current Price - Entry Price) * Quantity
-    unrealized_pnl = (current_live_price - avg_entry) * current_qty
+# 3. THE "ANTI-GLITCH" CALCULATION
+# Total Portfolio Value = Current Quantity * Current Price
+# If you are short 10 shares at 100, your portfolio value is -1000 (A debt)
+current_value_of_holdings = current_qty * current_live_price
 
-# 4. Display Wallet & Live P&L
-st.sidebar.metric("Virtual Cash", f"₹{st.session_state['balance']:,.2f}")
+# NET WEALTH = Cash + Value of Holdings
+net_wealth = st.session_state['balance'] + current_value_of_holdings
+total_pnl = net_wealth - st.session_state['initial_capital']
 
-if current_qty != 0:
-    pnl_color = "normal" if unrealized_pnl == 0 else ("positive" if unrealized_pnl > 0 else "negative")
-    st.sidebar.metric(f"Live P&L: {ticker_symbol}", f"₹{unrealized_pnl:.2f}", delta=f"{unrealized_pnl:.2f}", delta_color=pnl_color)
-    st.sidebar.write(f"📍 **Entry Price:** ₹{avg_entry:.2f}")
-    st.sidebar.write(f"📦 **Holding:** {current_qty} shares")
-else:
-    st.sidebar.info("No active position in this stock.")
+# 4. Display the TRUTH (Net Wealth)
+# This prevents the "Free Money" confusion
+st.sidebar.metric("Total Net Worth", f"₹{net_wealth:,.2f}", delta=f"P/L: ₹{total_pnl:.2f}")
 
-# 5. Trading Logic with Average Price Calculation
+with st.sidebar.expander("🔍 View Cash Breakdown"):
+    st.write(f"💵 **Cash in Hand:** ₹{st.session_state['balance']:,.2f}")
+    st.write(f"📝 **Holding Value:** ₹{current_value_of_holdings:,.2f}")
+    st.caption("Note: Shorting increases cash but creates an equal debt in holding value.")
+
+# 5. Trading Controls
 st.sidebar.markdown("---")
 trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
 col_buy, col_sell = st.sidebar.columns(2)
@@ -146,7 +149,7 @@ if not data.empty:
     with col_buy:
         if st.button("🟢 BUY / COVER", use_container_width=True):
             cost = current_live_price * trade_qty
-            # Update Average Price (Weighted Average)
+            # Update Portfolio and Avg Price
             new_total_qty = current_qty + trade_qty
             if new_total_qty != 0:
                 new_avg = ((current_qty * avg_entry) + (trade_qty * current_live_price)) / new_total_qty
@@ -159,17 +162,18 @@ if not data.empty:
 
     with col_sell:
         if st.button("🔴 SELL / SHORT", use_container_width=True):
-            revenue = current_live_price * trade_qty
-            # Update Average Price
+            proceeds = current_live_price * trade_qty
+            # Update Portfolio and Avg Price
             new_total_qty = current_qty - trade_qty
             if new_total_qty != 0:
+                # We calculate the avg entry of the short position
                 new_avg = ((current_qty * avg_entry) - (trade_qty * current_live_price)) / new_total_qty
             else:
                 new_avg = 0
             
-            st.session_state['balance'] += revenue
+            st.session_state['balance'] += proceeds # Cash goes up...
             st.session_state['portfolio'][ticker_symbol] = {'qty': new_total_qty, 'avg_price': new_avg}
-            st.rerun()
+            st.rerun() # ...but Net Wealth (displayed above) stays the same!
 # 5. Dashboard Visuals & AI Calculations
 if not data.empty:
     last_price = data['Close'].iloc[-1]
