@@ -260,3 +260,52 @@ else:
 if live_mode:
     time.sleep(30)
     st.rerun()
+# --- NEW: PAPER TRADING VIRTUAL WALLET ---
+st.sidebar.markdown("---")
+st.sidebar.header("💼 Paper Trading Wallet")
+
+# 1. Initialize the wallet if it doesn't exist yet
+if 'balance' not in st.session_state:
+    st.session_state['balance'] = 100000.0  # Start with ₹1 Lakh virtual money
+if 'portfolio' not in st.session_state:
+    st.session_state['portfolio'] = {}      # Track how many shares of what stock you own
+
+# Display Current Balance
+st.sidebar.metric("Virtual Cash Available", f"₹{st.session_state['balance']:,.2f}")
+
+# Show Current Holdings for the selected stock
+current_shares = st.session_state['portfolio'].get(ticker_symbol, 0)
+st.sidebar.write(f"**Shares Owned:** {current_shares} {ticker_symbol}")
+
+# 2. Buy and Sell Controls
+trade_qty = st.sidebar.number_input("Quantity to Trade", min_value=1, value=10, step=1)
+
+col_buy, col_sell = st.sidebar.columns(2)
+
+# Ensure we have data to get the current price before allowing a trade
+if not data.empty:
+    current_live_price = data['Close'].iloc[-1]
+    
+    with col_buy:
+        if st.button("🟢 BUY", use_container_width=True):
+            cost = current_live_price * trade_qty
+            if st.session_state['balance'] >= cost:
+                st.session_state['balance'] -= cost
+                st.session_state['portfolio'][ticker_symbol] = current_shares + trade_qty
+                st.sidebar.success(f"Bought {trade_qty} shares at ₹{current_live_price:.2f}")
+                st.rerun() # Refresh the screen to update balance
+            else:
+                st.sidebar.error("Not enough virtual cash!")
+
+    with col_sell:
+        if st.button("🔴 SELL", use_container_width=True):
+            if current_shares >= trade_qty:
+                revenue = current_live_price * trade_qty
+                st.session_state['balance'] += revenue
+                st.session_state['portfolio'][ticker_symbol] = current_shares - trade_qty
+                st.sidebar.success(f"Sold {trade_qty} shares at ₹{current_live_price:.2f}")
+                st.rerun() # Refresh the screen to update balance
+            else:
+                st.sidebar.error("You don't own enough shares to sell!")
+else:
+    st.sidebar.warning("Waiting for market data to enable trading...")
