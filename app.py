@@ -209,18 +209,67 @@ if live_mode:
     time.sleep(30)
     st.rerun()
 import streamlit as st
+import yfinance as yf
 import pandas as pd
+import plotly.graph_objects as go
 
-# Sample data (replace with your actual data)
-data = {'Price': [10, 11, 12, 11, 13, 14, 13]}
-df = pd.DataFrame(data)
+# 1. Setup Page Layout
+st.set_page_config(layout="wide", page_title="Intraday Trading Dashboard")
+st.title("📈 Intraday Trading Dashboard")
 
-# Calculate Moving Average
-df['MA'] = df['Price'].rolling(window=3).mean()
+# 2. Sidebar Controls for Interactivity
+st.sidebar.header("Chart Settings")
+ticker_symbol = st.sidebar.text_input("Ticker Symbol", "AAPL").upper()
+interval = st.sidebar.selectbox("Intraday Interval", ["1m", "5m", "15m", "30m", "1h"], index=1)
+period = st.sidebar.selectbox("Data Period", ["1d", "5d", "1mo"], index=0)
 
-# Display in Streamlit
-st.subheader("Moving Average Indicator")
-st.write(df)
+st.sidebar.header("Indicators")
+short_window = st.sidebar.slider("Short Moving Average", min_value=3, max_value=50, value=9)
+long_window = st.sidebar.slider("Long Moving Average", min_value=10, max_value=200, value=21)
 
-# FIXED: Added the missing quote around 'MA'
-st.line_chart(df[['Price', 'MA']])
+# 3. Fetch Real Intraday Data
+@st.cache_data # Caches the data so it doesn't redownload on every slider move
+def load_data(ticker, prd, intv):
+    data = yf.download(tickers=ticker, period=prd, interval=intv)
+    return data
+
+df = load_data(ticker_symbol, period, interval)
+
+# 4. Check if data exists, then calculate and plot
+if df.empty:
+    st.error(f"No data found for {ticker_symbol}. Please check the ticker or select a different period.")
+else:
+    # Calculate Moving Averages
+    df['Short_MA'] = df['Close'].rolling(window=short_window).mean()
+    df['Long_MA'] = df['Close'].rolling(window=long_window).mean()
+
+    # Create an interactive Candlestick chart using Plotly
+    fig = go.Figure()
+
+    # Add Candlesticks
+    fig.add_trace(go.Candlestick(
+        x=df.index,
+        open=df['Open'], high=df['High'],
+        low=df['Low'], close=df['Close'],
+        name='Price'
+    ))
+
+    # Add Moving Averages
+    fig.add_trace(go.Scatter(x=df.index, y=df['Short_MA'], line=dict(color='blue', width=1.5), name=f'{short_window}-Period MA'))
+    fig.add_trace(go.Scatter(x=df.index, y=df['Long_MA'], line=dict(color='orange', width=1.5), name=f'{long_window}-Period MA'))
+
+    # Format the chart
+    fig.update_layout(
+        title=f"{ticker_symbol} - {interval} Chart",
+        yaxis_title="Price (USD)",
+        xaxis_rangeslider_visible=False, # Hides the messy slider at the bottom
+        height=600,
+        template="plotly_dark" # Gives it a professional trading terminal look
+    )
+
+    # Display the chart
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Show raw data in a collapsible section
+    with st.expander("View Raw Data"):
+        st.dataframe(df.tail(10))
