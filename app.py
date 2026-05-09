@@ -104,65 +104,72 @@ def load_data(ticker, period, interval):
 
 data = load_data(ticker_symbol, time_period, time_interval)
 
-# --- 4. UPGRADED: EGOD SHORT-SELLING & PORTFOLIO ENGINE ---
+# --- 4. UPGRADED: EGOD LIVE P&L ENGINE ---
 st.sidebar.markdown("---")
 st.sidebar.header("💼 Hashim Egod Wallet")
 
-# Initialize Session States
+# 1. Initialize Advanced Session States
 if 'balance' not in st.session_state:
     st.session_state['balance'] = 100000.0  
 if 'portfolio' not in st.session_state:
-    st.session_state['portfolio'] = {}      
+    st.session_state['portfolio'] = {} # Stores {ticker: {'qty': 0, 'avg_price': 0}}
 
-# Display Total Wealth (Cash + Value of Holdings)
+# 2. Get Current Stock Stats
 current_live_price = data['Close'].iloc[-1] if not data.empty else 0
-st.sidebar.metric("Virtual Cash Available", f"₹{st.session_state['balance']:,.2f}")
+pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'avg_price': 0})
+current_qty = pos['qty']
+avg_entry = pos['avg_price']
 
-# Trading Controls
+# 3. Calculate Live Profit/Loss for the Current Stock
+unrealized_pnl = 0
+if current_qty != 0:
+    # Formula: (Current Price - Entry Price) * Quantity
+    unrealized_pnl = (current_live_price - avg_entry) * current_qty
+
+# 4. Display Wallet & Live P&L
+st.sidebar.metric("Virtual Cash", f"₹{st.session_state['balance']:,.2f}")
+
+if current_qty != 0:
+    pnl_color = "normal" if unrealized_pnl == 0 else ("positive" if unrealized_pnl > 0 else "negative")
+    st.sidebar.metric(f"Live P&L: {ticker_symbol}", f"₹{unrealized_pnl:.2f}", delta=f"{unrealized_pnl:.2f}", delta_color=pnl_color)
+    st.sidebar.write(f"📍 **Entry Price:** ₹{avg_entry:.2f}")
+    st.sidebar.write(f"📦 **Holding:** {current_qty} shares")
+else:
+    st.sidebar.info("No active position in this stock.")
+
+# 5. Trading Logic with Average Price Calculation
+st.sidebar.markdown("---")
 trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
 col_buy, col_sell = st.sidebar.columns(2)
-
-current_shares = st.session_state['portfolio'].get(ticker_symbol, 0)
 
 if not data.empty:
     with col_buy:
         if st.button("🟢 BUY / COVER", use_container_width=True):
             cost = current_live_price * trade_qty
+            # Update Average Price (Weighted Average)
+            new_total_qty = current_qty + trade_qty
+            if new_total_qty != 0:
+                new_avg = ((current_qty * avg_entry) + (trade_qty * current_live_price)) / new_total_qty
+            else:
+                new_avg = 0
+            
             st.session_state['balance'] -= cost
-            st.session_state['portfolio'][ticker_symbol] = current_shares + trade_qty
-            st.sidebar.success(f"Executed: Bought {trade_qty}")
-            time.sleep(0.5)
+            st.session_state['portfolio'][ticker_symbol] = {'qty': new_total_qty, 'avg_price': new_avg}
             st.rerun() 
 
     with col_sell:
-        # PERFECT FIX: Removed the "not enough shares" check to allow Short Selling
         if st.button("🔴 SELL / SHORT", use_container_width=True):
             revenue = current_live_price * trade_qty
+            # Update Average Price
+            new_total_qty = current_qty - trade_qty
+            if new_total_qty != 0:
+                new_avg = ((current_qty * avg_entry) - (trade_qty * current_live_price)) / new_total_qty
+            else:
+                new_avg = 0
+            
             st.session_state['balance'] += revenue
-            st.session_state['portfolio'][ticker_symbol] = current_shares - trade_qty
-            st.sidebar.success(f"Executed: Shorted {trade_qty}")
-            time.sleep(0.5)
-            st.rerun() 
-else:
-    st.sidebar.warning("Market Closed / No Data")
-
-# --- LIVE PORTFOLIO SUMMARY TABLE ---
-st.sidebar.markdown("### 📋 Active Portfolio")
-portfolio_data = []
-for symbol, qty in st.session_state['portfolio'].items():
-    if qty != 0:
-        # Determine if Long or Short
-        pos_type = "LONG" if qty > 0 else "SHORT"
-        portfolio_data.append({"Stock": symbol, "Qty": qty, "Type": pos_type})
-
-if portfolio_data:
-    st.sidebar.table(pd.DataFrame(portfolio_data))
-    if st.sidebar.button("🗑️ Reset All Data"):
-        st.session_state['balance'] = 100000.0
-        st.session_state['portfolio'] = {}
-        st.rerun()
-else:
-    st.sidebar.info("No active positions.")
+            st.session_state['portfolio'][ticker_symbol] = {'qty': new_total_qty, 'avg_price': new_avg}
+            st.rerun()
 # 5. Dashboard Visuals & AI Calculations
 if not data.empty:
     last_price = data['Close'].iloc[-1]
