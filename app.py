@@ -9,7 +9,7 @@ import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
-st.title("👑 Hashim Egod Trading Terminal V16")
+st.title("👑 Hashim Egod Trading Terminal V17")
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -129,50 +129,55 @@ if not data.empty:
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
-    # --- MASSIVE VERDICT BOX ---
+    # --- MASSIVE VERDICT BOX (OUT OF 10 POINTS) ---
     if show_signals:
         latest = data.iloc[-1]
         buy_score = 0
         sell_score = 0
         reasons = []
 
+        # RSI = 3 Points
         if pd.notna(latest['RSI']):
-            if latest['RSI'] < 30: buy_score += 1; reasons.append("🟢 RSI is Oversold (<30)")
-            elif latest['RSI'] > 70: sell_score += 1; reasons.append("🔴 RSI is Overbought (>70)")
+            if latest['RSI'] < 30: buy_score += 3; reasons.append("🟢 RSI is Oversold (<30) [+3 Points]")
+            elif latest['RSI'] > 70: sell_score += 3; reasons.append("🔴 RSI is Overbought (>70) [+3 Points]")
 
+        # MACD = 4 Points
         if pd.notna(latest['MACD']) and pd.notna(latest['Signal']):
-            if latest['MACD'] > latest['Signal']: buy_score += 1; reasons.append("🟢 MACD crossed above Signal Line")
-            elif latest['MACD'] < latest['Signal']: sell_score += 1; reasons.append("🔴 MACD crossed below Signal Line")
+            if latest['MACD'] > latest['Signal']: buy_score += 4; reasons.append("🟢 MACD crossed above Signal Line [+4 Points]")
+            elif latest['MACD'] < latest['Signal']: sell_score += 4; reasons.append("🔴 MACD crossed below Signal Line [+4 Points]")
 
+        # SMA = 3 Points
         if pd.notna(latest['SMA20']):
-            if latest['Close'] > latest['SMA20']: buy_score += 1; reasons.append("🟢 Price is above 20 SMA (Uptrend)")
-            elif latest['Close'] < latest['SMA20']: sell_score += 1; reasons.append("🔴 Price is below 20 SMA (Downtrend)")
+            if latest['Close'] > latest['SMA20']: buy_score += 3; reasons.append("🟢 Price is above 20 SMA (Uptrend) [+3 Points]")
+            elif latest['Close'] < latest['SMA20']: sell_score += 3; reasons.append("🔴 Price is below 20 SMA (Downtrend) [+3 Points]")
 
         # Render the custom HTML Box
         st.markdown("### 🤖 Live AI Verdict")
-        if buy_score > sell_score and buy_score >= 2:
+        if buy_score >= 6: # Needs at least 6 out of 10 points
             st.markdown(f"""
             <div style="background-color:rgba(0, 200, 83, 0.15); border: 2px solid #00C853; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                 <h1 style="color: #00C853; margin:0; font-size: 40px;">🟢 BUY NOW</h1>
-                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Score: {buy_score}/3 (Strong Bullish Momentum)</p>
+                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Score: {buy_score}/10 (Strong Bullish Momentum)</p>
             </div>
             """, unsafe_allow_html=True)
-        elif sell_score > buy_score and sell_score >= 2:
+        elif sell_score >= 6:
             st.markdown(f"""
             <div style="background-color:rgba(255, 82, 82, 0.15); border: 2px solid #FF5252; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                 <h1 style="color: #FF5252; margin:0; font-size: 40px;">🔴 SELL NOW</h1>
-                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Score: {sell_score}/3 (Strong Bearish Momentum)</p>
+                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Score: {sell_score}/10 (Strong Bearish Momentum)</p>
             </div>
             """, unsafe_allow_html=True)
         else:
+            # If the score is less than 6 for either direction, it defaults to HOLD
+            max_score = max(buy_score, sell_score)
             st.markdown(f"""
             <div style="background-color:rgba(255, 167, 38, 0.15); border: 2px solid #FFA726; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                 <h1 style="color: #FFA726; margin:0; font-size: 40px;">⚖️ HOLD / WAIT</h1>
-                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Mixed Market Signals. Wait for a clearer trend.</p>
+                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Highest Score is {max_score}/10. Mixed Market Signals. Wait for a clearer trend.</p>
             </div>
             """, unsafe_allow_html=True)
             
-        with st.expander("See AI Logic Breakdown"):
+        with st.expander("See AI Logic Breakdown (Total: 10 Points)"):
             for r in reasons:
                 st.write(r)
             if not reasons:
