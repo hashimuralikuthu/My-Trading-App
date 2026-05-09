@@ -1,6 +1,6 @@
-streamlit>=1.37.0
+streamlit
 yfinance
 plotly
 pandas
 requests
-st-gsheets-connection
+streamlit>=1.37.0
