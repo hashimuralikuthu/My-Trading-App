@@ -9,7 +9,7 @@ import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Master Trading Terminal", layout="wide")
-st.title("👑 My Master Terminal V13 (Deep Data Edition)")
+st.title("👑 My Master Terminal V14 (With Live Signals)")
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -20,14 +20,12 @@ def get_all_nse_data():
         r = requests.get(url, headers=headers, timeout=15)
         df = pd.read_csv(io.StringIO(r.text))
         
-        # Clean column names (NSE CSV has hidden spaces)
         df.columns = df.columns.str.strip()
         df = df[df['SERIES'] == 'EQ']
         
         df['Display Name'] = df['NAME OF COMPANY'] + " (" + df['SYMBOL'] + ")"
         df['Yahoo Ticker'] = df['SYMBOL'].astype(str) + ".NS"
         
-        # Create a dictionary holding ALL company details
         stock_data = {}
         for _, row in df.iterrows():
             stock_data[row['Display Name']] = {
@@ -40,7 +38,6 @@ def get_all_nse_data():
             }
         return stock_data
     except Exception as e:
-        # Fallback data if NSE website is slow
         return {
             "Zomato Limited (ZOMATO)": {
                 'Ticker': 'ZOMATO.NS', 'Name': 'Zomato Limited', 'Symbol': 'ZOMATO',
@@ -65,7 +62,6 @@ for i, name in enumerate(stock_display_names):
 st.sidebar.header("🎯 Market Explorer")
 selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index)
 
-# Get all the details for the selected stock
 current_stock_info = stock_data[selected_display_name]
 ticker_symbol = current_stock_info['Ticker']
 
@@ -83,8 +79,13 @@ st.sidebar.markdown("---")
 st.sidebar.header("🛠️ Technical Tools")
 show_sma = st.sidebar.checkbox("20 SMA (Trend)", value=True)
 show_ema = st.sidebar.checkbox("50 EMA (Support)", value=False)
-show_rsi = st.sidebar.checkbox("RSI (Overbought/Oversold)", value=False)
-show_macd = st.sidebar.checkbox("MACD (Momentum)", value=False) 
+show_rsi = st.sidebar.checkbox("RSI (Overbought/Oversold)", value=True)
+show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True) 
+
+# --- NEW: TRADE SIGNAL TOGGLE ---
+st.sidebar.markdown("---")
+st.sidebar.header("🤖 AI Trade Assistant")
+show_signals = st.sidebar.toggle("Analyze Live Buy/Sell Signals", value=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚡ Live Engine")
@@ -98,18 +99,15 @@ def load_data(ticker, period, interval):
     try:
         data = yf.download(tickers=ticker, period=period, interval=interval, progress=False)
         if data.empty: return pd.DataFrame()
-        
-        # THE FIX: Flattens MultiIndex columns from newer yfinance versions
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.get_level_values(0)
-            
         return data
     except:
         return pd.DataFrame()
 
 data = load_data(ticker_symbol, time_period, time_interval)
 
-# 4. Dashboard Visuals
+# 4. Dashboard Visuals & Calculations
 if not data.empty:
     last_price = data['Close'].iloc[-1]
     prev_price = data['Close'].iloc[-2]
@@ -118,7 +116,6 @@ if not data.empty:
 
     st.subheader(f"📊 {current_stock_info['Name']} ({current_stock_info['Symbol']})")
 
-    # --- NEW: COMPANY INFORMATION EXPANDER ---
     with st.expander("ℹ️ Official Company Details (From NSE EQUITY_L.csv)"):
         i1, i2, i3, i4 = st.columns(4)
         i1.write(f"**NSE Symbol:** {current_stock_info['Symbol']}")
@@ -127,12 +124,7 @@ if not data.empty:
         i4.write(f"**Face Value:** ₹{current_stock_info['Face_Value']}")
     st.markdown("---")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Current Price", f"₹{last_price:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
-    c2.metric("Day High", f"₹{data['High'].max():.2f}")
-    c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
-
-    # Calculations
+    # Indicator Calculations
     data['SMA20'] = data['Close'].rolling(window=20).mean()
     data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
     
@@ -147,12 +139,67 @@ if not data.empty:
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
+    # --- NEW: LIVE SIGNAL GENERATOR LOGIC ---
+    if show_signals:
+        latest = data.iloc[-1]
+        buy_score = 0
+        sell_score = 0
+        reasons = []
+
+        # RSI Checks
+        if pd.notna(latest['RSI']):
+            if latest['RSI'] < 30:
+                buy_score += 1
+                reasons.append("🟢 RSI is Oversold (<30) - Potential Reversal")
+            elif latest['RSI'] > 70:
+                sell_score += 1
+                reasons.append("🔴 RSI is Overbought (>70) - Potential Pullback")
+
+        # MACD Checks
+        if pd.notna(latest['MACD']) and pd.notna(latest['Signal']):
+            if latest['MACD'] > latest['Signal']:
+                buy_score += 1
+                reasons.append("🟢 MACD crossed above Signal Line - Bullish Momentum")
+            elif latest['MACD'] < latest['Signal']:
+                sell_score += 1
+                reasons.append("🔴 MACD crossed below Signal Line - Bearish Momentum")
+
+        # Trend Checks
+        if pd.notna(latest['SMA20']):
+            if latest['Close'] > latest['SMA20']:
+                buy_score += 1
+                reasons.append("🟢 Price is above 20 SMA - Short-term Uptrend")
+            elif latest['Close'] < latest['SMA20']:
+                sell_score += 1
+                reasons.append("🔴 Price is below 20 SMA - Short-term Downtrend")
+
+        # Display Signal Box
+        signal_container = st.container()
+        with signal_container:
+            if buy_score > sell_score and buy_score >= 2:
+                st.success(f"### 📈 SIGNAL: BUY (Score: {buy_score}/3)")
+            elif sell_score > buy_score and sell_score >= 2:
+                st.error(f"### 📉 SIGNAL: SELL (Score: {sell_score}/3)")
+            else:
+                st.warning(f"### ⚖️ SIGNAL: NEUTRAL / HOLD (Mixed Market)")
+            
+            # Show the "Why"
+            for r in reasons:
+                st.write(r)
+        st.markdown("---")
+
+    # Metrics Display
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Current Price", f"₹{last_price:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
+    c2.metric("Day High", f"₹{data['High'].max():.2f}")
+    c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
+
+    # Chart Generation
     active_subplots = 2 
     if show_rsi: active_subplots += 1
     if show_macd: active_subplots += 1
 
     row_heights = [0.5] + [0.5 / (active_subplots - 1)] * (active_subplots - 1)
-    
     fig = make_subplots(rows=active_subplots, cols=1, shared_xaxes=True, 
                         vertical_spacing=0.03, row_heights=row_heights)
 
@@ -165,8 +212,7 @@ if not data.empty:
 
     fig.add_trace(go.Candlestick(
         x=data.index, open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'], 
-        name='Price',
-        increasing_line_color=bull_color, decreasing_line_color=bear_color,
+        name='Price', increasing_line_color=bull_color, decreasing_line_color=bear_color,
         increasing_fillcolor=bull_color, decreasing_fillcolor=bear_color
     ), row=current_row, col=1)
 
@@ -194,16 +240,13 @@ if not data.empty:
         fig.add_trace(go.Bar(x=data.index, y=macd_hist, marker_color=hist_colors, name='Histogram'), row=current_row, col=1)
 
     fig.update_layout(
-        height=900 if active_subplots > 2 else 700, 
-        template=template, xaxis_rangeslider_visible=False, showlegend=False,
-        dragmode='pan', hovermode='x unified', plot_bgcolor=bg_color, paper_bgcolor=bg_color, 
-        margin=dict(l=20, r=20, t=40, b=20)
+        height=900 if active_subplots > 2 else 700, template=template, xaxis_rangeslider_visible=False, showlegend=False,
+        dragmode='pan', hovermode='x unified', plot_bgcolor=bg_color, paper_bgcolor=bg_color, margin=dict(l=20, r=20, t=40, b=20)
     )
-    
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=grid_color) 
     
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'modeBarButtonsToAdd': ['drawline', 'eraseshape'], 'displaylogo': False})
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True, 'displaylogo': False})
 
 else:
     st.error(f"Error fetching data for {selected_display_name}.")
