@@ -9,7 +9,7 @@ import time
 
 # 1. Page Configuration
 st.set_page_config(page_title="Master Trading Terminal", layout="wide")
-st.title("👑 My Master Terminal V14 (With Live Signals)")
+st.title("👑 My Master Terminal V15 (With AI Verdict Box)")
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -85,7 +85,7 @@ show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True)
 # --- NEW: TRADE SIGNAL TOGGLE ---
 st.sidebar.markdown("---")
 st.sidebar.header("🤖 AI Trade Assistant")
-show_signals = st.sidebar.toggle("Analyze Live Buy/Sell Signals", value=True)
+show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚡ Live Engine")
@@ -114,17 +114,7 @@ if not data.empty:
     change = last_price - prev_price
     pct_change = (change / prev_price) * 100
 
-    st.subheader(f"📊 {current_stock_info['Name']} ({current_stock_info['Symbol']})")
-
-    with st.expander("ℹ️ Official Company Details (From NSE EQUITY_L.csv)"):
-        i1, i2, i3, i4 = st.columns(4)
-        i1.write(f"**NSE Symbol:** {current_stock_info['Symbol']}")
-        i2.write(f"**ISIN Number:** {current_stock_info['ISIN']}")
-        i3.write(f"**Listing Date:** {current_stock_info['Listing_Date']}")
-        i4.write(f"**Face Value:** ₹{current_stock_info['Face_Value']}")
-    st.markdown("---")
-
-    # Indicator Calculations
+    # Indicator Calculations (Moved up so the Verdict Box can use them immediately)
     data['SMA20'] = data['Close'].rolling(window=20).mean()
     data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
     
@@ -139,60 +129,71 @@ if not data.empty:
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
 
-    # --- NEW: LIVE SIGNAL GENERATOR LOGIC ---
+    # --- NEW: MASSIVE VERDICT BOX ---
     if show_signals:
         latest = data.iloc[-1]
         buy_score = 0
         sell_score = 0
         reasons = []
 
-        # RSI Checks
         if pd.notna(latest['RSI']):
-            if latest['RSI'] < 30:
-                buy_score += 1
-                reasons.append("🟢 RSI is Oversold (<30) - Potential Reversal")
-            elif latest['RSI'] > 70:
-                sell_score += 1
-                reasons.append("🔴 RSI is Overbought (>70) - Potential Pullback")
+            if latest['RSI'] < 30: buy_score += 1; reasons.append("🟢 RSI is Oversold (<30)")
+            elif latest['RSI'] > 70: sell_score += 1; reasons.append("🔴 RSI is Overbought (>70)")
 
-        # MACD Checks
         if pd.notna(latest['MACD']) and pd.notna(latest['Signal']):
-            if latest['MACD'] > latest['Signal']:
-                buy_score += 1
-                reasons.append("🟢 MACD crossed above Signal Line - Bullish Momentum")
-            elif latest['MACD'] < latest['Signal']:
-                sell_score += 1
-                reasons.append("🔴 MACD crossed below Signal Line - Bearish Momentum")
+            if latest['MACD'] > latest['Signal']: buy_score += 1; reasons.append("🟢 MACD crossed above Signal Line")
+            elif latest['MACD'] < latest['Signal']: sell_score += 1; reasons.append("🔴 MACD crossed below Signal Line")
 
-        # Trend Checks
         if pd.notna(latest['SMA20']):
-            if latest['Close'] > latest['SMA20']:
-                buy_score += 1
-                reasons.append("🟢 Price is above 20 SMA - Short-term Uptrend")
-            elif latest['Close'] < latest['SMA20']:
-                sell_score += 1
-                reasons.append("🔴 Price is below 20 SMA - Short-term Downtrend")
+            if latest['Close'] > latest['SMA20']: buy_score += 1; reasons.append("🟢 Price is above 20 SMA (Uptrend)")
+            elif latest['Close'] < latest['SMA20']: sell_score += 1; reasons.append("🔴 Price is below 20 SMA (Downtrend)")
 
-        # Display Signal Box
-        signal_container = st.container()
-        with signal_container:
-            if buy_score > sell_score and buy_score >= 2:
-                st.success(f"### 📈 SIGNAL: BUY (Score: {buy_score}/3)")
-            elif sell_score > buy_score and sell_score >= 2:
-                st.error(f"### 📉 SIGNAL: SELL (Score: {sell_score}/3)")
-            else:
-                st.warning(f"### ⚖️ SIGNAL: NEUTRAL / HOLD (Mixed Market)")
+        # Render the custom HTML Box
+        st.markdown("### 🤖 Live AI Verdict")
+        if buy_score > sell_score and buy_score >= 2:
+            st.markdown(f"""
+            <div style="background-color:rgba(0, 200, 83, 0.15); border: 2px solid #00C853; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #00C853; margin:0; font-size: 40px;">🟢 BUY NOW</h1>
+                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Score: {buy_score}/3 (Strong Bullish Momentum)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        elif sell_score > buy_score and sell_score >= 2:
+            st.markdown(f"""
+            <div style="background-color:rgba(255, 82, 82, 0.15); border: 2px solid #FF5252; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #FF5252; margin:0; font-size: 40px;">🔴 SELL NOW</h1>
+                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Score: {sell_score}/3 (Strong Bearish Momentum)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="background-color:rgba(255, 167, 38, 0.15); border: 2px solid #FFA726; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #FFA726; margin:0; font-size: 40px;">⚖️ HOLD / WAIT</h1>
+                <p style="margin:0; font-size: 18px; color: {'white' if theme_choice == 'Ultra Dark' else 'black'};">Mixed Market Signals. Wait for a clearer trend.</p>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Show the "Why"
+        with st.expander("See AI Logic Breakdown"):
             for r in reasons:
                 st.write(r)
+            if not reasons:
+                st.write("Not enough data to form a reason yet (wait for more candles).")
         st.markdown("---")
 
-    # Metrics Display
+    # Header and Stats
+    st.subheader(f"📊 {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    
+    with st.expander("ℹ️ Official Company Details (From NSE EQUITY_L.csv)"):
+        i1, i2, i3, i4 = st.columns(4)
+        i1.write(f"**NSE Symbol:** {current_stock_info['Symbol']}")
+        i2.write(f"**ISIN Number:** {current_stock_info['ISIN']}")
+        i3.write(f"**Listing Date:** {current_stock_info['Listing_Date']}")
+        i4.write(f"**Face Value:** ₹{current_stock_info['Face_Value']}")
+
     c1, c2, c3 = st.columns(3)
     c1.metric("Current Price", f"₹{last_price:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
     c2.metric("Day High", f"₹{data['High'].max():.2f}")
     c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
+    st.markdown("---")
 
     # Chart Generation
     active_subplots = 2 
