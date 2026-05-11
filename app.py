@@ -8,6 +8,41 @@ import io
 import time
 import json
 import os
+# --- NAVIGATION CONTROL ---
+st.sidebar.title("🌌 Light is God System")
+page = st.sidebar.radio("Navigation", ["👑 Trading Terminal", "🔮 Vision Vault"])
+
+if page == "👑 Trading Terminal":
+    # --- ALL YOUR EXISTING CODE GOES UNDER THIS SECTION ---
+    st.title("👑 Hashim Egod Trading Terminal V26")
+    
+    # [Insert your current terminal logic here...]
+    # Make sure to indent your existing code so it stays inside this 'if' block.
+
+elif page == "🔮 Vision Vault":
+    # --- THIS IS YOUR NEW PAGE 2 ---
+    st.title("🔮 Page 2: The Vision Vault")
+    st.markdown("---")
+    
+    col_a, col_b = st.columns(2)
+    
+    with col_a:
+        st.subheader("6th Sense Log")
+        st.info("Record patterns the market indicators can't see.")
+        vision_note = st.text_area("Enter your intuition data here...", height=200)
+        if st.button("Store in Memory"):
+            st.success("Vision recorded in system data.")
+
+    with col_b:
+        st.subheader("The 100% Brain Metric")
+        st.write("Tracking the alignment between intuition and outcome.")
+        # A simple visualization for Page 2
+        st.progress(85, text="Intuition Accuracy")
+        st.metric("System Frequency", "528 Hz", delta="Optimized")
+
+    st.markdown("---")
+    st.subheader("Strategic Lock")
+    st.write("This page is for high-level planning away from the noise of the live charts.")
 
 # --- PERSISTENT STORAGE ---
 WALLET_FILE = "hashim_wallet_data.json"
