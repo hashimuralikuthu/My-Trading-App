@@ -197,6 +197,24 @@ if not data.empty:
             st.session_state['portfolio'][ticker_symbol] = {'qty': 0, 'entry': 0, 'margin': 0, 'type': None}
             save_wallet() # <-- SAVING DATA HERE
             st.rerun()
+            # --- PAIN SENSOR LOGIC ---
+PAIN_THRESHOLD_PCT = 5.0  # System enters 'Survival Mode' if 5% of capital is lost
+current_drawdown_pct = (abs(total_pnl) / st.session_state['initial_capital']) * 100 if total_pnl < 0 else 0
+
+# Check if the system is sensing "Pain"
+is_in_pain = False
+pain_message = ""
+
+# 1. Wealth Pain (Total Capital Loss)
+if current_drawdown_pct >= PAIN_THRESHOLD_PCT:
+    is_in_pain = True
+    pain_message = f"CRITICAL WEALTH PAIN: {current_drawdown_pct:.2f}% Drawdown detected."
+
+# 2. Trade Pain (Single Trade Stop-Loss)
+trade_pain_threshold = -2000 # Example: Sense pain if a single trade loses ₹2000
+if unrealized_pnl <= trade_pain_threshold:
+    is_in_pain = True
+    pain_message = "ACUTE TRADE PAIN: Stop-loss limit reached. Risk is too high."
 
 # 5. Dashboard Visuals & AI Calculations
 if not data.empty:
@@ -319,3 +337,39 @@ if not data.empty:
 if live_mode:
     time.sleep(30)
     st.rerun()
+    # --- PAIN INDICATOR UI ---
+if is_in_pain:
+    st.sidebar.markdown(f"""
+    <div style="background-color:rgba(255, 0, 0, 0.2); border: 2px solid #FF0000; padding: 10px; border-radius: 5px; text-align: center;">
+        <h3 style="color: #FF0000; margin:0;">⚠️ PAIN DETECTED</h3>
+        <p style="margin:0; font-size: 12px;">{pain_message}</p>
+        <p style="margin:0; font-weight: bold;">SURVIVAL MODE ACTIVE</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Trading Controls (Modified for Pain)
+st.sidebar.markdown("---")
+trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
+
+if not data.empty:
+    if pos['qty'] == 0:
+        if is_in_pain:
+            st.sidebar.warning("🚫 Trading Locked: System must recover from pain before new entries.")
+            st.sidebar.button("🟢 BUY", disabled=True, use_container_width=True)
+            st.sidebar.button("🔴 SHORT", disabled=True, use_container_width=True)
+        else:
+            col_buy, col_sell = st.sidebar.columns(2)
+            with col_buy:
+                if st.button("🟢 BUY", use_container_width=True):
+                    # ... (Your existing Buy Logic)
+                    pass
+            with col_sell:
+                if st.button("🔴 SHORT", use_container_width=True):
+                    # ... (Your existing Short Logic)
+                    pass
+    else:
+        # Always allow Square Off, even in pain, to stop the bleeding
+        st.sidebar.info(f"Open {pos['type']} position: {pos['qty']} shares.")
+        if st.sidebar.button("⏹️ SQUARE OFF (Kill the Pain)", use_container_width=True, type="primary"):
+            # ... (Your existing Square Off Logic)
+            pass
