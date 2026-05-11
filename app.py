@@ -8,42 +8,90 @@ import io
 import time
 import json
 import os
-# --- NAVIGATION CONTROL ---
-st.sidebar.title("🌌 Light is God System")
-page = st.sidebar.radio("Navigation", ["👑 Trading Terminal", "🔮 Vision Vault"])
-
-if page == "👑 Trading Terminal":
-    # --- ALL YOUR EXISTING CODE GOES UNDER THIS SECTION ---
-    st.title("👑 Hashim Egod Trading Terminal V26")
-    
-    # [Insert your current terminal logic here...]
-    # Make sure to indent your existing code so it stays inside this 'if' block.
-
-elif page == "🔮 Vision Vault":
-    # --- THIS IS YOUR NEW PAGE 2 ---
-    st.title("🔮 Page 2: The Vision Vault")
+elif app_mode == "💯 100% PROFIT":
+    # --- PAGE 2: STRATEGIC INTELLIGENCE ---
+    st.title("💯 100% PROFIT: Deep Market Intelligence")
     st.markdown("---")
-    
-    col_a, col_b = st.columns(2)
-    
-    with col_a:
-        st.subheader("6th Sense Log")
-        st.info("Record patterns the market indicators can't see.")
-        vision_note = st.text_area("Enter your intuition data here...", height=200)
-        if st.button("Store in Memory"):
-            st.success("Vision recorded in system data.")
 
-    with col_b:
-        st.subheader("The 100% Brain Metric")
-        st.write("Tracking the alignment between intuition and outcome.")
-        # A simple visualization for Page 2
-        st.progress(85, text="Intuition Accuracy")
-        st.metric("System Frequency", "528 Hz", delta="Optimized")
-
+    # 1. Record of Current Company
+    st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
+    st.write(f"**NSE Ticker:** {current_stock_info['Symbol']} | **ISIN:** {current_stock_info['ISIN']}")
+    
     st.markdown("---")
-    st.subheader("Strategic Lock")
-    st.write("This page is for high-level planning away from the noise of the live charts.")
+    col_vol, col_google = st.columns(2)
 
+    # 2. Volume & Buy/Sell Pressure
+    with col_vol:
+        st.markdown("### 🌊 Live Market Flow")
+        if not data.empty:
+            current_volume = int(data['Volume'].iloc[-1])
+            open_price = data['Open'].iloc[-1]
+            close_price = data['Close'].iloc[-1]
+            
+            # Estimating Buy vs Sell pressure based on candle strength
+            if close_price >= open_price:
+                buy_est = int(current_volume * 0.65)  # Bullish candle = more buyers
+                sell_est = current_volume - buy_est
+            else:
+                sell_est = int(current_volume * 0.65) # Bearish candle = more sellers
+                buy_est = current_volume - sell_est
+
+            st.metric("Current Total Volume", f"{current_volume:,}")
+            st.write(f"🟢 **Shares Bought (Est):** {buy_est:,}")
+            st.write(f"🔴 **Shares Sold (Est):** {sell_est:,}")
+        else:
+            st.write("Awaiting live volume data...")
+
+    # 3. Google Opinion (AI Sentiment)
+    with col_google:
+        st.markdown("### 🧠 Google / AI Opinion")
+        if not data.empty:
+            # Calculating a fast algorithm for the "Opinion"
+            price_above_sma = data['Close'].iloc[-1] > data['SMA20'].iloc[-1]
+            rsi_value = data['RSI'].iloc[-1]
+            
+            if price_above_sma and rsi_value < 70:
+                st.markdown("""
+                <div style="background-color:rgba(0, 200, 83, 0.1); border-left: 5px solid #00C853; padding: 10px;">
+                    <h4 style="color: #00C853; margin:0;">🟢 GOOGLE VERDICT: BUY</h4>
+                    <p style="margin:0; font-size: 14px;">Algorithm detects positive momentum and safe entry levels.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            elif not price_above_sma and rsi_value > 30:
+                st.markdown("""
+                <div style="background-color:rgba(255, 82, 82, 0.1); border-left: 5px solid #FF5252; padding: 10px;">
+                    <h4 style="color: #FF5252; margin:0;">🔴 GOOGLE VERDICT: SELL</h4>
+                    <p style="margin:0; font-size: 14px;">Algorithm detects negative momentum. High risk.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background-color:rgba(255, 167, 38, 0.1); border-left: 5px solid #FFA726; padding: 10px;">
+                    <h4 style="color: #FFA726; margin:0;">⚖️ GOOGLE VERDICT: NEUTRAL</h4>
+                    <p style="margin:0; font-size: 14px;">Market is consolidating. Wait for clearer signals.</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # 4. Live News (Text Only)
+    st.markdown("---")
+    st.markdown("### 📰 Market News Wire (Text Only)")
+    
+    try:
+        stock_ticker = yf.Ticker(ticker_symbol)
+        news_data = stock_ticker.news
+        
+        if news_data:
+            for article in news_data[:5]:  # Display top 5 news items
+                title = article.get('title', 'No Title')
+                publisher = article.get('publisher', 'Unknown Source')
+                
+                st.markdown(f"**▪️ {title}**")
+                st.caption(f"Source: {publisher}")
+                st.write("") # Adds a small space between text blocks
+        else:
+            st.info("No recent news found for this company.")
+    except Exception as e:
+        st.warning("News feed is currently offline or unreachable.")
 # --- PERSISTENT STORAGE ---
 WALLET_FILE = "hashim_wallet_data.json"
 
