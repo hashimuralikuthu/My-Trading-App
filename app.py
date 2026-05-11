@@ -238,7 +238,6 @@ if app_mode == "📈 Trading Terminal":
         c2.metric("Day High", f"₹{data['High'].max():.2f}")
         c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
 
-        # --- FIX: ROBUST ZOOM & PAN ENGINE ---
         active_subplots = 2 
         if show_rsi: active_subplots += 1
         if show_macd: active_subplots += 1
@@ -266,27 +265,26 @@ if app_mode == "📈 Trading Terminal":
             fig.add_trace(go.Scatter(x=data.index, y=data['MACD'], line=dict(color='#2962FF', width=2), name='MACD'), row=current_row, col=1)
             fig.add_trace(go.Scatter(x=data.index, y=data['Signal'], line=dict(color='#FF8C00', width=2), name='Signal'), row=current_row, col=1)
 
-        # CRITICAL LAYOUT UPDATE FOR ZOOM
         fig.update_layout(
             height=900, 
             template=template, 
             xaxis_rangeslider_visible=False, 
             plot_bgcolor=bg_color, 
             paper_bgcolor=bg_color,
-            dragmode='zoom', # Standard zoom box enabled
+            dragmode='zoom', 
             hovermode='x unified',
-            uirevision=ticker_symbol # THIS KEEPS ZOOM STATE DURING RERUNS
+            uirevision=ticker_symbol 
         )
         
         st.plotly_chart(fig, use_container_width=True, config={
-            'scrollZoom': True,      # Enable mouse wheel zoom
-            'displayModeBar': True,  # Show tool bar
+            'scrollZoom': True,      
+            'displayModeBar': True,  
             'displaylogo': False,
             'modeBarButtonsToAdd': ['drawline', 'drawcircle', 'eraseshape']
         })
 
 # ==========================================
-# PAGE 2: 100% PROFIT (COUNCIL OF 10 ENGINE)
+# PAGE 2: 100% PROFIT (COUNCIL OF 10)
 # ==========================================
 elif app_mode == "💯 100% PROFIT":
     st.title("💯 100% PROFIT: The Council of 10")
@@ -294,6 +292,29 @@ elif app_mode == "💯 100% PROFIT":
 
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
     st.write(f"**NSE Ticker:** {current_stock_info['Symbol']} | **ISIN:** {current_stock_info['ISIN']}")
+    st.markdown("---")
+
+    # --- RESTORED: LIVE MARKET FLOW & VOLUME ---
+    st.markdown("### 🌊 Live Market Flow (Volume)")
+    if not data.empty:
+        current_volume = int(data['Volume'].iloc[-1])
+        open_price = data['Open'].iloc[-1]
+        close_price = data['Close'].iloc[-1]
+        
+        if close_price >= open_price:
+            buy_est = int(current_volume * 0.65)
+            sell_est = current_volume - buy_est
+        else:
+            sell_est = int(current_volume * 0.65)
+            buy_est = current_volume - sell_est
+
+        c_vol, c_buy, c_sell = st.columns(3)
+        c_vol.metric("Current Total Volume", f"{current_volume:,}")
+        c_buy.metric("🟢 Shares Bought (Est)", f"{buy_est:,}")
+        c_sell.metric("🔴 Shares Sold (Est)", f"{sell_est:,}")
+    else:
+        st.write("Awaiting live volume data...")
+
     st.markdown("---")
 
     # ==========================================
@@ -306,7 +327,6 @@ elif app_mode == "💯 100% PROFIT":
     for i, tf in enumerate(timeframes):
         with tf_cols[i]:
             try:
-                # Fetch rapid data for each timeframe
                 tf_data = yf.download(tickers=ticker_symbol, period="1d", interval=tf, progress=False)
                 if not tf_data.empty and len(tf_data) > 2:
                     if isinstance(tf_data.columns, pd.MultiIndex):
@@ -335,22 +355,18 @@ elif app_mode == "💯 100% PROFIT":
     st.markdown("---")
 
     # ==========================================
-    # THE COUNCIL OF 10 (OPINION MAKERS)
+    # THE COUNCIL OF 10
     # ==========================================
     st.markdown("### 🏛️ The Council of 10 Decision Makers")
     
     if not data.empty and len(data) > 20:
-        # Calculate Advanced Indicators for the 10 Experts
         close = data['Close']
         high = data['High']
         low = data['Low']
         volume = data['Volume']
         
-        # Expert 1: SMA (Short Trend)
         sma20 = close.rolling(window=20).mean()
-        # Expert 2: EMA (Medium Trend)
         ema50 = close.ewm(span=50, adjust=False).mean()
-        # Expert 3 & 4: RSI & MACD
         delta = close.diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -359,69 +375,50 @@ elif app_mode == "💯 100% PROFIT":
         exp26 = close.ewm(span=26, adjust=False).mean()
         macd = exp12 - exp26
         macd_signal = macd.ewm(span=9, adjust=False).mean()
-        # Expert 5: VWAP (Intraday Value)
         vwap = (volume * (high + low + close) / 3).cumsum() / volume.cumsum()
-        # Expert 6: Volume Surge
         vol_sma = volume.rolling(window=20).mean()
-        # Expert 7: Stochastic Oscillator
         stoch_k = ((close - low.rolling(14).min()) / (high.rolling(14).max() - low.rolling(14).min())) * 100
-        # Expert 8: Bollinger Breakout
         std20 = close.rolling(window=20).std()
         upper_bb = sma20 + (std20 * 2)
-        lower_bb = sma20 - (std20 * 2)
 
-        # GET LATEST VALUES
         c_close = close.iloc[-1]
         c_open = data['Open'].iloc[-1]
 
-        # --- THE VOTING PROCESS (1 = BUY, 0 = SELL) ---
         votes = 0
         council_logic = []
 
-        # 1. Price Action Expert
         if c_close > c_open: votes += 1; council_logic.append("🟢 Candlestick Expert: Green Candle (Buy)")
         else: council_logic.append("🔴 Candlestick Expert: Red Candle (Sell)")
         
-        # 2. SMA Expert
         if c_close > sma20.iloc[-1]: votes += 1; council_logic.append("🟢 SMA Expert: Price above 20 SMA (Buy)")
         else: council_logic.append("🔴 SMA Expert: Price below 20 SMA (Sell)")
 
-        # 3. EMA Expert
         if c_close > ema50.iloc[-1]: votes += 1; council_logic.append("🟢 EMA Expert: Price above 50 EMA (Buy)")
         else: council_logic.append("🔴 EMA Expert: Price below 50 EMA (Sell)")
 
-        # 4. RSI Momentum Expert
         if rsi.iloc[-1] > 40 and rsi.iloc[-1] < 70: votes += 1; council_logic.append("🟢 RSI Expert: Momentum is rising safely (Buy)")
         else: council_logic.append("🔴 RSI Expert: Momentum exhausted or dead (Sell)")
 
-        # 5. MACD Trend Expert
         if macd.iloc[-1] > macd_signal.iloc[-1]: votes += 1; council_logic.append("🟢 MACD Expert: Bullish Crossover (Buy)")
         else: council_logic.append("🔴 MACD Expert: Bearish Crossover (Sell)")
 
-        # 6. VWAP Institutional Expert
         if c_close > vwap.iloc[-1]: votes += 1; council_logic.append("🟢 VWAP Expert: Trading above institutional average (Buy)")
         else: council_logic.append("🔴 VWAP Expert: Trading below institutional average (Sell)")
 
-        # 7. Volume Flow Expert
         if volume.iloc[-1] > vol_sma.iloc[-1]: votes += 1; council_logic.append("🟢 Volume Expert: High buying interest (Buy)")
         else: council_logic.append("🔴 Volume Expert: Low volume, weak conviction (Sell)")
 
-        # 8. Stochastic Expert
         if stoch_k.iloc[-1] < 80 and stoch_k.iloc[-1] > 20: votes += 1; council_logic.append("🟢 Stochastic Expert: Room to grow (Buy)")
         else: council_logic.append("🔴 Stochastic Expert: Overbought/Dangerous (Sell)")
 
-        # 9. Volatility (Bollinger) Expert
         if c_close > sma20.iloc[-1] and c_close < upper_bb.iloc[-1]: votes += 1; council_logic.append("🟢 Bollinger Expert: Safe upward channel (Buy)")
         else: council_logic.append("🔴 Bollinger Expert: Rejecting upper band or crashing (Sell)")
 
-        # 10. Golden Cross Expert
         if sma20.iloc[-1] > ema50.iloc[-1]: votes += 1; council_logic.append("🟢 Cross Expert: Short trend is beating Long trend (Buy)")
         else: council_logic.append("🔴 Cross Expert: Short trend is failing (Sell)")
 
-        # --- THE FINAL DECISION ---
         st.markdown("### ⚖️ The Final Verdict")
         
-        # User Logic: >5 Buy, 5 Hold, <5 Sell
         if votes > 5:
             verdict_color = "#00C853"
             verdict_text = "BUY TIME"
@@ -446,7 +443,6 @@ elif app_mode == "💯 100% PROFIT":
         with st.expander("🔍 See The Council's Debate (Individual Votes)"):
             for logic in council_logic:
                 st.write(logic)
-
     else:
         st.warning("Not enough data to convene the Council. Waiting for live market feed...")
 
@@ -477,31 +473,5 @@ elif app_mode == "💯 100% PROFIT":
 # ==========================================
 # LIVE ENGINE TRIGGER
 # ==========================================
-if live_mode:
-    time.sleep(30); st.rerun()
-    # 4. Live News (Google News Direct)
-    st.markdown("---")
-    st.markdown("### 📰 Market News Wire (Google News)")
-    
-    try:
-        search_query = f"{current_stock_info['Name']} stock news NSE"
-        encoded_query = urllib.parse.quote(search_query)
-        google_news_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-IN&gl=IN&ceid=IN:en"
-        
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(google_news_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            root = ET.fromstring(response.content)
-            items = root.findall('./channel/item')
-            for item in items[:5]:
-                title = item.find('title').text
-                st.markdown(f"**▪️ {title}**")
-                st.caption(f"🕒 {item.find('pubDate').text}")
-                st.write("")
-    except Exception as e:
-        st.error(f"News feed offline. Error: {e}")
-
-# Live Engine Trigger
 if live_mode:
     time.sleep(30); st.rerun()
