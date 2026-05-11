@@ -8,6 +8,8 @@ import io
 import time
 import json
 import os
+import urllib.parse
+import xml.etree.ElementTree as ET
 
 # --- PERSISTENT STORAGE ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -71,7 +73,7 @@ for i, name in enumerate(stock_display_names):
         default_index = i
         break
 
-# 2. Sidebar Settings (Global so both pages can use it)
+# 2. Sidebar Settings (Global)
 st.sidebar.header("🎯 Market Explorer")
 selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index)
 current_stock_info = stock_data[selected_display_name]
@@ -139,7 +141,7 @@ if app_mode == "📈 Trading Terminal":
     net_wealth = st.session_state['balance'] + pos['margin'] + unrealized_pnl
     total_pnl = net_wealth - st.session_state['initial_capital']
 
-    # --- NEW PAIN SENSOR CALCULATION ---
+    # --- PAIN SENSOR CALCULATION ---
     PAIN_THRESHOLD_PCT = 5.0
     current_drawdown_pct = (abs(total_pnl) / st.session_state['initial_capital']) * 100 if total_pnl < 0 else 0
     trade_pain_threshold = -2000
@@ -289,7 +291,6 @@ if app_mode == "📈 Trading Terminal":
 # PAGE 2: 100% PROFIT
 # ==========================================
 elif app_mode == "💯 100% PROFIT":
-    # --- STRATEGIC INTELLIGENCE ---
     st.title("💯 100% PROFIT: Deep Market Intelligence")
     st.markdown("---")
 
@@ -308,12 +309,11 @@ elif app_mode == "💯 100% PROFIT":
             open_price = data['Open'].iloc[-1]
             close_price = data['Close'].iloc[-1]
             
-            # Estimating Buy vs Sell pressure based on candle strength
             if close_price >= open_price:
-                buy_est = int(current_volume * 0.65)  # Bullish candle = more buyers
+                buy_est = int(current_volume * 0.65)
                 sell_est = current_volume - buy_est
             else:
-                sell_est = int(current_volume * 0.65) # Bearish candle = more sellers
+                sell_est = int(current_volume * 0.65)
                 buy_est = current_volume - sell_est
 
             st.metric("Current Total Volume", f"{current_volume:,}")
@@ -322,11 +322,10 @@ elif app_mode == "💯 100% PROFIT":
         else:
             st.write("Awaiting live volume data...")
 
-    # 3. Google Opinion (AI Sentiment)
+    # 3. Google Opinion
     with col_google:
         st.markdown("### 🧠 Google / AI Opinion")
         if not data.empty:
-            # Calculating a fast algorithm for the "Opinion"
             data['SMA20'] = data['Close'].rolling(window=20).mean()
             delta = data['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -338,47 +337,50 @@ elif app_mode == "💯 100% PROFIT":
             rsi_value = data['RSI'].iloc[-1]
             
             if price_above_sma and rsi_value < 70:
-                st.markdown("""
-                <div style="background-color:rgba(0, 200, 83, 0.1); border-left: 5px solid #00C853; padding: 10px;">
-                    <h4 style="color: #00C853; margin:0;">🟢 GOOGLE VERDICT: BUY</h4>
-                    <p style="margin:0; font-size: 14px;">Algorithm detects positive momentum and safe entry levels.</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown('<div style="background-color:rgba(0, 200, 83, 0.1); border-left: 5px solid #00C853; padding: 10px;"><h4 style="color: #00C853; margin:0;">🟢 GOOGLE VERDICT: BUY</h4><p style="margin:0; font-size: 14px;">Algorithm detects positive momentum.</p></div>', unsafe_allow_html=True)
             elif not price_above_sma and rsi_value > 30:
-                st.markdown("""
-                <div style="background-color:rgba(255, 82, 82, 0.1); border-left: 5px solid #FF5252; padding: 10px;">
-                    <h4 style="color: #FF5252; margin:0;">🔴 GOOGLE VERDICT: SELL</h4>
-                    <p style="margin:0; font-size: 14px;">Algorithm detects negative momentum. High risk.</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown('<div style="background-color:rgba(255, 82, 82, 0.1); border-left: 5px solid #FF5252; padding: 10px;"><h4 style="color: #FF5252; margin:0;">🔴 GOOGLE VERDICT: SELL</h4><p style="margin:0; font-size: 14px;">Algorithm detects negative momentum.</p></div>', unsafe_allow_html=True)
             else:
-                st.markdown("""
-                <div style="background-color:rgba(255, 167, 38, 0.1); border-left: 5px solid #FFA726; padding: 10px;">
-                    <h4 style="color: #FFA726; margin:0;">⚖️ GOOGLE VERDICT: NEUTRAL</h4>
-                    <p style="margin:0; font-size: 14px;">Market is consolidating. Wait for clearer signals.</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown('<div style="background-color:rgba(255, 167, 38, 0.1); border-left: 5px solid #FFA726; padding: 10px;"><h4 style="color: #FFA726; margin:0;">⚖️ GOOGLE VERDICT: NEUTRAL</h4><p style="margin:0; font-size: 14px;">Market is consolidating.</p></div>', unsafe_allow_html=True)
 
-    # 4. Live News (Text Only)
+    # 4. Live News (Text Only) - GOOGLE NEWS DIRECT
     st.markdown("---")
-    st.markdown("### 📰 Market News Wire (Text Only)")
+    st.markdown("### 📰 Market News Wire (Google News)")
     
     try:
-        stock_ticker = yf.Ticker(ticker_symbol)
-        news_data = stock_ticker.news
+        # Ask Google News directly for the company name
+        search_query = f"{current_stock_info['Name']} stock NSE"
+        encoded_query = urllib.parse.quote(search_query)
+        google_news_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-IN&gl=IN&ceid=IN:en"
         
-        if news_data:
-            for article in news_data[:5]:  # Display top 5 news items
-                title = article.get('title', 'No Title')
-                publisher = article.get('publisher', 'Unknown Source')
-                
-                st.markdown(f"**▪️ {title}**")
-                st.caption(f"Source: {publisher}")
-                st.write("") # Adds a small space between text blocks
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(google_news_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+            items = root.findall('./channel/item')
+            
+            if items:
+                for item in items[:5]:  # Display top 5 results
+                    title = item.find('title').text if item.find('title') is not None else "No Title"
+                    pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
+                    
+                    # Clean the title format (Google usually adds " - Source" at the end)
+                    if " - " in title:
+                        clean_title, source = title.rsplit(" - ", 1)
+                    else:
+                        clean_title, source = title, "Google News"
+
+                    st.markdown(f"**▪️ {clean_title}**")
+                    st.caption(f"Source: {source} | 🕒 {pub_date.replace(' GMT', '')}")
+                    st.write("")
+            else:
+                st.info("No recent Google News found for this company.")
         else:
-            st.info("No recent news found for this company.")
+            st.warning("Google News feed is currently unreachable.")
+            
     except Exception as e:
-        st.warning("News feed is currently offline or unreachable.")
+        st.error(f"News feed offline. Error: {e}")
 
 # ==========================================
 # LIVE ENGINE TRIGGER
