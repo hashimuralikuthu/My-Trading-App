@@ -115,20 +115,21 @@ def load_data(ticker, period, interval):
 
 data = load_data(ticker_symbol, time_period, time_interval)
 
+# Initialize Session State for Wallet
+saved_wallet = load_wallet()
+if 'initial_capital' not in st.session_state: st.session_state['initial_capital'] = saved_wallet['initial_capital'] if saved_wallet else 100000.0
+if 'balance' not in st.session_state: st.session_state['balance'] = saved_wallet['balance'] if saved_wallet else 100000.0  
+if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wallet['portfolio'] if saved_wallet else {} 
+
 # ==========================================
 # PAGE 1: TRADING TERMINAL
 # ==========================================
 if app_mode == "📈 Trading Terminal":
-    st.title("👑 Hashim Egod Trading Terminal V26 (Perfect Paper Trading)")
+    st.title("👑 Hashim Egod Trading Terminal V26")
 
     # --- 4. PERFECT MARGIN & WALLET ENGINE ---
     st.sidebar.markdown("---")
     st.sidebar.header("💼 Hashim Egod Wallet")
-
-    saved_wallet = load_wallet()
-    if 'initial_capital' not in st.session_state: st.session_state['initial_capital'] = saved_wallet['initial_capital'] if saved_wallet else 100000.0
-    if 'balance' not in st.session_state: st.session_state['balance'] = saved_wallet['balance'] if saved_wallet else 100000.0  
-    if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wallet['portfolio'] if saved_wallet else {} 
 
     current_live_price = data['Close'].iloc[-1] if not data.empty else 0
     pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'entry': 0, 'margin': 0, 'type': None})
@@ -149,27 +150,16 @@ if app_mode == "📈 Trading Terminal":
     pain_message = ""
 
     if current_drawdown_pct >= PAIN_THRESHOLD_PCT:
-        is_in_pain = True
-        pain_message = f"CRITICAL WEALTH PAIN: {current_drawdown_pct:.2f}% Drawdown detected."
+        is_in_pain, pain_message = True, f"CRITICAL WEALTH PAIN: {current_drawdown_pct:.2f}% Drawdown."
     elif unrealized_pnl <= trade_pain_threshold:
-        is_in_pain = True
-        pain_message = "ACUTE TRADE PAIN: Stop-loss limit reached."
+        is_in_pain, pain_message = True, "ACUTE TRADE PAIN: Stop-loss reached."
 
-    # Display Metrics and Pain Warning
     if is_in_pain:
-        st.sidebar.markdown(f"""<div style="background-color:rgba(255, 0, 0, 0.2); border: 2px solid #FF0000; padding: 10px; border-radius: 5px; text-align: center;">
-            <h3 style="color: #FF0000; margin:0;">⚠️ PAIN DETECTED</h3><p style="margin:0; font-size: 12px;">{pain_message}</p>
-            <p style="margin:0; font-weight: bold;">SURVIVAL MODE ACTIVE</p></div>""", unsafe_allow_html=True)
+        st.sidebar.markdown(f'<div style="background-color:rgba(255, 0, 0, 0.2); border: 2px solid #FF0000; padding: 10px; border-radius: 5px; text-align: center;"><h3 style="color: #FF0000; margin:0;">⚠️ PAIN DETECTED</h3><p style="margin:0; font-size: 12px;">{pain_message}</p><p style="margin:0; font-weight: bold;">SURVIVAL MODE ACTIVE</p></div>', unsafe_allow_html=True)
 
     st.sidebar.metric("Total Net Worth", f"₹{net_wealth:,.2f}", delta=f"Total P/L: ₹{total_pnl:.2f}")
 
-    with st.sidebar.expander("🔍 View Cash Breakdown"):
-        st.write(f"💵 **Available Funds:** ₹{st.session_state['balance']:,.2f}")
-        st.write(f"🔒 **Margin Locked:** ₹{pos['margin']:,.2f}")
-        st.write(f"📈 **Live Trade P&L:** ₹{unrealized_pnl:,.2f}")
-
     # Trading Controls
-    st.sidebar.markdown("---")
     trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
 
     if not data.empty:
@@ -185,7 +175,6 @@ if app_mode == "📈 Trading Terminal":
                             st.session_state['balance'] -= cost
                             st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'BUY'}
                             save_wallet(); st.rerun()
-                        else: st.sidebar.error("Not enough funds!")
                 with col_sell:
                     if st.button("🔴 SHORT", use_container_width=True):
                         cost = current_live_price * trade_qty
@@ -193,7 +182,6 @@ if app_mode == "📈 Trading Terminal":
                             st.session_state['balance'] -= cost
                             st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'SHORT'}
                             save_wallet(); st.rerun()
-                        else: st.sidebar.error("Not enough funds!")
         else:
             st.sidebar.info(f"Open {pos['type']} position of {pos['qty']} shares.")
             if st.sidebar.button("⏹️ SQUARE OFF (Kill the Pain)", use_container_width=True, type="primary"):
@@ -213,8 +201,7 @@ if app_mode == "📈 Trading Terminal":
         delta = data['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        data['RSI'] = 100 - (100 / (1 + rs))
+        data['RSI'] = 100 - (100 / (1 + (gain/loss)))
         exp1 = data['Close'].ewm(span=12, adjust=False).mean()
         exp2 = data['Close'].ewm(span=26, adjust=False).mean()
         data['MACD'] = exp1 - exp2
@@ -245,22 +232,18 @@ if app_mode == "📈 Trading Terminal":
                 for r in reasons: st.write(r)
 
         st.subheader(f"📊 {current_stock_info['Name']} ({current_stock_info['Symbol']})")
-        with st.expander("ℹ️ Official Company Details"):
-            i1, i2, i3, i4 = st.columns(4)
-            i1.write(f"**NSE Symbol:** {current_stock_info['Symbol']}")
-            i2.write(f"**ISIN:** {current_stock_info['ISIN']}")
-            i3.write(f"**Listing Date:** {current_stock_info['Listing_Date']}")
-            i4.write(f"**Face Value:** ₹{current_stock_info['Face_Value']}")
-
+        
         c1, c2, c3 = st.columns(3)
         c1.metric("Current Price", f"₹{last_price:.2f}", f"{change:.2f} ({pct_change:.2f}%)")
         c2.metric("Day High", f"₹{data['High'].max():.2f}")
         c3.metric("Day Low", f"₹{data['Low'].min():.2f}")
 
+        # --- FIX: ROBUST ZOOM & PAN ENGINE ---
         active_subplots = 2 
         if show_rsi: active_subplots += 1
         if show_macd: active_subplots += 1
         row_heights = [0.5] + [0.5 / (active_subplots - 1)] * (active_subplots - 1)
+        
         fig = make_subplots(rows=active_subplots, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
         
         current_row = 1
@@ -283,9 +266,24 @@ if app_mode == "📈 Trading Terminal":
             fig.add_trace(go.Scatter(x=data.index, y=data['MACD'], line=dict(color='#2962FF', width=2), name='MACD'), row=current_row, col=1)
             fig.add_trace(go.Scatter(x=data.index, y=data['Signal'], line=dict(color='#FF8C00', width=2), name='Signal'), row=current_row, col=1)
 
-        fig.update_layout(height=900, template=template, xaxis_rangeslider_visible=False, plot_bgcolor=bg_color, paper_bgcolor=bg_color)
-        st.plotly_chart(fig, use_container_width=True)
-
+        # CRITICAL LAYOUT UPDATE FOR ZOOM
+        fig.update_layout(
+            height=900, 
+            template=template, 
+            xaxis_rangeslider_visible=False, 
+            plot_bgcolor=bg_color, 
+            paper_bgcolor=bg_color,
+            dragmode='zoom', # Standard zoom box enabled
+            hovermode='x unified',
+            uirevision=ticker_symbol # THIS KEEPS ZOOM STATE DURING RERUNS
+        )
+        
+        st.plotly_chart(fig, use_container_width=True, config={
+            'scrollZoom': True,      # Enable mouse wheel zoom
+            'displayModeBar': True,  # Show tool bar
+            'displaylogo': False,
+            'modeBarButtonsToAdd': ['drawline', 'drawcircle', 'eraseshape']
+        })
 
 # ==========================================
 # PAGE 2: 100% PROFIT
@@ -294,62 +292,48 @@ elif app_mode == "💯 100% PROFIT":
     st.title("💯 100% PROFIT: Deep Market Intelligence")
     st.markdown("---")
 
-    # 1. Record of Current Company
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
     st.write(f"**NSE Ticker:** {current_stock_info['Symbol']} | **ISIN:** {current_stock_info['ISIN']}")
     
     st.markdown("---")
     col_vol, col_google = st.columns(2)
 
-    # 2. Volume & Buy/Sell Pressure
     with col_vol:
         st.markdown("### 🌊 Live Market Flow")
         if not data.empty:
             current_volume = int(data['Volume'].iloc[-1])
             open_price = data['Open'].iloc[-1]
             close_price = data['Close'].iloc[-1]
-            
-            if close_price >= open_price:
-                buy_est = int(current_volume * 0.65)
-                sell_est = current_volume - buy_est
-            else:
-                sell_est = int(current_volume * 0.65)
-                buy_est = current_volume - sell_est
-
+            buy_est = int(current_volume * 0.65) if close_price >= open_price else int(current_volume * 0.35)
+            sell_est = current_volume - buy_est
             st.metric("Current Total Volume", f"{current_volume:,}")
             st.write(f"🟢 **Shares Bought (Est):** {buy_est:,}")
             st.write(f"🔴 **Shares Sold (Est):** {sell_est:,}")
-        else:
-            st.write("Awaiting live volume data...")
 
-    # 3. Google Opinion
     with col_google:
         st.markdown("### 🧠 Google / AI Opinion")
         if not data.empty:
+            # Need RSI and SMA for opinion on this page too
             data['SMA20'] = data['Close'].rolling(window=20).mean()
             delta = data['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            data['RSI'] = 100 - (100 / (1 + rs))
+            rsi_val = 100 - (100 / (1 + (gain/loss)))
             
-            price_above_sma = data['Close'].iloc[-1] > data['SMA20'].iloc[-1]
-            rsi_value = data['RSI'].iloc[-1]
-            
-            if price_above_sma and rsi_value < 70:
-                st.markdown('<div style="background-color:rgba(0, 200, 83, 0.1); border-left: 5px solid #00C853; padding: 10px;"><h4 style="color: #00C853; margin:0;">🟢 GOOGLE VERDICT: BUY</h4><p style="margin:0; font-size: 14px;">Algorithm detects positive momentum.</p></div>', unsafe_allow_html=True)
-            elif not price_above_sma and rsi_value > 30:
-                st.markdown('<div style="background-color:rgba(255, 82, 82, 0.1); border-left: 5px solid #FF5252; padding: 10px;"><h4 style="color: #FF5252; margin:0;">🔴 GOOGLE VERDICT: SELL</h4><p style="margin:0; font-size: 14px;">Algorithm detects negative momentum.</p></div>', unsafe_allow_html=True)
+            price_above = data['Close'].iloc[-1] > data['SMA20'].iloc[-1]
+            if price_above and rsi_val.iloc[-1] < 70:
+                st.markdown('<div style="background-color:rgba(0, 200, 83, 0.1); border-left: 5px solid #00C853; padding: 10px;"><h4 style="color: #00C853; margin:0;">🟢 GOOGLE VERDICT: BUY</h4></div>', unsafe_allow_html=True)
+            elif not price_above and rsi_val.iloc[-1] > 30:
+                st.markdown('<div style="background-color:rgba(255, 82, 82, 0.1); border-left: 5px solid #FF5252; padding: 10px;"><h4 style="color: #FF5252; margin:0;">🔴 GOOGLE VERDICT: SELL</h4></div>', unsafe_allow_html=True)
             else:
-                st.markdown('<div style="background-color:rgba(255, 167, 38, 0.1); border-left: 5px solid #FFA726; padding: 10px;"><h4 style="color: #FFA726; margin:0;">⚖️ GOOGLE VERDICT: NEUTRAL</h4><p style="margin:0; font-size: 14px;">Market is consolidating.</p></div>', unsafe_allow_html=True)
+                st.markdown('<div style="background-color:rgba(255, 167, 38, 0.1); border-left: 5px solid #FFA726; padding: 10px;"><h4 style="color: #FFA726; margin:0;">⚖️ GOOGLE VERDICT: NEUTRAL</h4></div>', unsafe_allow_html=True)
 
-    # 4. Live News (Text Only) - GOOGLE NEWS DIRECT
+    # 4. Live News (Google News Direct)
     st.markdown("---")
     st.markdown("### 📰 Market News Wire (Google News)")
     
     try:
-        # Ask Google News directly for the company name
-        search_query = f"{current_stock_info['Name']} stock NSE"
+        search_query = f"{current_stock_info['Name']} stock news NSE"
         encoded_query = urllib.parse.quote(search_query)
         google_news_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-IN&gl=IN&ceid=IN:en"
         
@@ -359,31 +343,14 @@ elif app_mode == "💯 100% PROFIT":
         if response.status_code == 200:
             root = ET.fromstring(response.content)
             items = root.findall('./channel/item')
-            
-            if items:
-                for item in items[:5]:  # Display top 5 results
-                    title = item.find('title').text if item.find('title') is not None else "No Title"
-                    pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
-                    
-                    # Clean the title format (Google usually adds " - Source" at the end)
-                    if " - " in title:
-                        clean_title, source = title.rsplit(" - ", 1)
-                    else:
-                        clean_title, source = title, "Google News"
-
-                    st.markdown(f"**▪️ {clean_title}**")
-                    st.caption(f"Source: {source} | 🕒 {pub_date.replace(' GMT', '')}")
-                    st.write("")
-            else:
-                st.info("No recent Google News found for this company.")
-        else:
-            st.warning("Google News feed is currently unreachable.")
-            
+            for item in items[:5]:
+                title = item.find('title').text
+                st.markdown(f"**▪️ {title}**")
+                st.caption(f"🕒 {item.find('pubDate').text}")
+                st.write("")
     except Exception as e:
         st.error(f"News feed offline. Error: {e}")
 
-# ==========================================
-# LIVE ENGINE TRIGGER
-# ==========================================
+# Live Engine Trigger
 if live_mode:
     time.sleep(30); st.rerun()
