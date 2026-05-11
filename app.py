@@ -11,25 +11,32 @@ import os
 import urllib.parse
 import xml.etree.ElementTree as ET
 
-# --- PERSISTENT STORAGE ---
+# --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
 
 def load_wallet():
     if os.path.exists(WALLET_FILE):
-        with open(WALLET_FILE, "r") as f:
-            return json.load(f)
+        try:
+            with open(WALLET_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return None # If JSON is corrupted, start fresh
     return None
 
 def save_wallet():
+    # Clean out any 0-quantity ghost trades before saving
+    clean_portfolio = {k: v for k, v in st.session_state['portfolio'].items() if v['qty'] > 0}
+    st.session_state['portfolio'] = clean_portfolio
+    
     data_to_save = {
         'initial_capital': st.session_state['initial_capital'],
         'balance': st.session_state['balance'],
-        'portfolio': st.session_state['portfolio']
+        'portfolio': clean_portfolio
     }
     with open(WALLET_FILE, "w") as f:
         json.dump(data_to_save, f)
 
-# 1. Page Configuration & Navigation
+# --- 2. PAGE CONFIGURATION & NAVIGATION ---
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
@@ -73,7 +80,7 @@ for i, name in enumerate(stock_display_names):
         default_index = i
         break
 
-# 2. Sidebar Settings (Global)
+# --- 3. SIDEBAR SETTINGS (GLOBAL) ---
 st.sidebar.header("🎯 Market Explorer")
 selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index)
 current_stock_info = stock_data[selected_display_name]
@@ -102,7 +109,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("⚡ Live Engine")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 
-# 3. Data Fetching Logic
+# Data Fetching Logic
 @st.cache_data(ttl=30)
 def load_data(ticker, period, interval):
     try:
@@ -121,6 +128,7 @@ if 'initial_capital' not in st.session_state: st.session_state['initial_capital'
 if 'balance' not in st.session_state: st.session_state['balance'] = saved_wallet['balance'] if saved_wallet else 100000.0  
 if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wallet['portfolio'] if saved_wallet else {} 
 
+
 # ==========================================
 # PAGE 1: TRADING TERMINAL
 # ==========================================
@@ -131,16 +139,41 @@ if app_mode == "📈 Trading Terminal":
     st.sidebar.markdown("---")
     st.sidebar.header("💼 Hashim Egod Wallet")
 
-    current_live_price = data['Close'].iloc[-1] if not data.empty else 0
-    pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'entry': 0, 'margin': 0, 'type': None})
+    current_live_price = data['Close'].iloc[-1] if not data.empty and len(data) > 0 else 0
+    
+    # 1. Global Portfolio Value Calculation (The Fix)
+    global_unrealized_pnl = 0.0
+    global_margin = 0.0
+    
+    for t, p_data in list(st.session_state['portfolio'].items()):
+        if p_data['qty'] <= 0: continue # Skip ghosts
+        
+        global_margin += p_data['margin']
+        
+        # Get live price for this specific stock
+        if t == ticker_symbol and current_live_price > 0:
+            live_p = current_live_price # Fast: use on-screen chart
+        else:
+            try:
+                bg_data = yf.Ticker(t).history(period="1d", interval="1m")
+                live_p = bg_data['Close'].iloc[-1] if not bg_data.empty else p_data['entry']
+            except:
+                live_p = p_data['entry'] # Fallback
+                
+        # Calculate Global PnL
+        if p_data['type'] == 'BUY': global_unrealized_pnl += (live_p - p_data['entry']) * p_data['qty']
+        elif p_data['type'] == 'SHORT': global_unrealized_pnl += (p_data['entry'] - live_p) * p_data['qty']
 
-    unrealized_pnl = 0
-    if pos['qty'] != 0:
-        if pos['type'] == 'BUY': unrealized_pnl = (current_live_price - pos['entry']) * pos['qty']
-        elif pos['type'] == 'SHORT': unrealized_pnl = (pos['entry'] - current_live_price) * pos['qty']
-
-    net_wealth = st.session_state['balance'] + pos['margin'] + unrealized_pnl
+    # 2. Net Wealth Math
+    net_wealth = st.session_state['balance'] + global_margin + global_unrealized_pnl
     total_pnl = net_wealth - st.session_state['initial_capital']
+
+    # Local position for currently viewed stock
+    pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'entry': 0, 'margin': 0, 'type': None})
+    local_pnl = 0.0
+    if pos['qty'] > 0:
+        if pos['type'] == 'BUY': local_pnl = (current_live_price - pos['entry']) * pos['qty']
+        elif pos['type'] == 'SHORT': local_pnl = (pos['entry'] - current_live_price) * pos['qty']
 
     # --- PAIN SENSOR CALCULATION ---
     PAIN_THRESHOLD_PCT = 5.0
@@ -151,18 +184,27 @@ if app_mode == "📈 Trading Terminal":
 
     if current_drawdown_pct >= PAIN_THRESHOLD_PCT:
         is_in_pain, pain_message = True, f"CRITICAL WEALTH PAIN: {current_drawdown_pct:.2f}% Drawdown."
-    elif unrealized_pnl <= trade_pain_threshold:
-        is_in_pain, pain_message = True, "ACUTE TRADE PAIN: Stop-loss reached."
+    elif local_pnl <= trade_pain_threshold:
+        is_in_pain, pain_message = True, "ACUTE TRADE PAIN: Stop-loss reached on active chart."
 
     if is_in_pain:
         st.sidebar.markdown(f'<div style="background-color:rgba(255, 0, 0, 0.2); border: 2px solid #FF0000; padding: 10px; border-radius: 5px; text-align: center;"><h3 style="color: #FF0000; margin:0;">⚠️ PAIN DETECTED</h3><p style="margin:0; font-size: 12px;">{pain_message}</p><p style="margin:0; font-weight: bold;">SURVIVAL MODE ACTIVE</p></div>', unsafe_allow_html=True)
 
     st.sidebar.metric("Total Net Worth", f"₹{net_wealth:,.2f}", delta=f"Total P/L: ₹{total_pnl:.2f}")
 
-    # Trading Controls
+    with st.sidebar.expander("🔍 View Cash Breakdown"):
+        st.write(f"💵 **Available Cash:** ₹{st.session_state['balance']:,.2f}")
+        st.write(f"🔒 **Global Margin:** ₹{global_margin:,.2f}")
+        st.write(f"🌍 **Global Open P&L:** ₹{global_unrealized_pnl:,.2f}")
+        if pos['qty'] > 0:
+            st.markdown("---")
+            st.write(f"📈 **Active ({current_stock_info['Symbol']}) P&L:** ₹{local_pnl:,.2f}")
+
+    # --- TRADING CONTROLS (The Fix) ---
+    st.sidebar.markdown("---")
     trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
 
-    if not data.empty:
+    if not data.empty and current_live_price > 0:
         if pos['qty'] == 0:
             if is_in_pain:
                 st.sidebar.warning("🚫 Trading Locked: Recover from pain first.")
@@ -175,6 +217,7 @@ if app_mode == "📈 Trading Terminal":
                             st.session_state['balance'] -= cost
                             st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'BUY'}
                             save_wallet(); st.rerun()
+                        else: st.sidebar.error("Not enough funds!")
                 with col_sell:
                     if st.button("🔴 SHORT", use_container_width=True):
                         cost = current_live_price * trade_qty
@@ -182,26 +225,21 @@ if app_mode == "📈 Trading Terminal":
                             st.session_state['balance'] -= cost
                             st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'SHORT'}
                             save_wallet(); st.rerun()
+                        else: st.sidebar.error("Not enough funds!")
         else:
             st.sidebar.info(f"Open {pos['type']} position of {pos['qty']} shares.")
             if st.sidebar.button("⏹️ SQUARE OFF (Kill the Pain)", use_container_width=True, type="primary"):
-                st.session_state['balance'] += pos['margin'] + unrealized_pnl
-                st.session_state['portfolio'][ticker_symbol] = {'qty': 0, 'entry': 0, 'margin': 0, 'type': None}
+                # Return collateral and Local PNL to balance
+                st.session_state['balance'] += pos['margin'] + local_pnl
+                del st.session_state['portfolio'][ticker_symbol]  # CLEAN KILL
                 save_wallet(); st.rerun()
 
     # 5. Dashboard Visuals & AI Calculations
-    if not data.empty:
+    if not data.empty and len(data) > 1:
         last_price = data['Close'].iloc[-1]
-        
-        # --- THE FIX: Safely check for previous price ---
-        if len(data) > 1:
-            prev_price = data['Close'].iloc[-2]
-            change = last_price - prev_price
-            pct_change = (change / prev_price) * 100
-        else:
-            prev_price = last_price
-            change = 0.0
-            pct_change = 0.0
+        prev_price = data['Close'].iloc[-2]
+        change = last_price - prev_price
+        pct_change = (change / prev_price) * 100
 
         data['SMA20'] = data['Close'].rolling(window=20).mean()
         data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
@@ -305,7 +343,7 @@ elif app_mode == "💯 100% PROFIT":
     
     with col_vol:
         st.markdown("### 🌊 Live Market Flow")
-        if not data.empty:
+        if not data.empty and len(data) > 0:
             current_volume = int(data['Volume'].iloc[-1])
             open_price = data['Open'].iloc[-1]
             close_price = data['Close'].iloc[-1]
