@@ -192,9 +192,16 @@ if app_mode == "📈 Trading Terminal":
     # 5. Dashboard Visuals & AI Calculations
     if not data.empty:
         last_price = data['Close'].iloc[-1]
-        prev_price = data['Close'].iloc[-2]
-        change = last_price - prev_price
-        pct_change = (change / prev_price) * 100
+        
+        # --- THE FIX: Safely check for previous price ---
+        if len(data) > 1:
+            prev_price = data['Close'].iloc[-2]
+            change = last_price - prev_price
+            pct_change = (change / prev_price) * 100
+        else:
+            prev_price = last_price
+            change = 0.0
+            pct_change = 0.0
 
         data['SMA20'] = data['Close'].rolling(window=20).mean()
         data['EMA50'] = data['Close'].ewm(span=50, adjust=False).mean()
@@ -294,7 +301,6 @@ elif app_mode == "💯 100% PROFIT":
     st.write(f"**NSE Ticker:** {current_stock_info['Symbol']} | **ISIN:** {current_stock_info['ISIN']}")
     st.markdown("---")
 
-    # --- YOUR RESTORED MARKET FLOW BLOCK ---
     col_vol, col_google = st.columns(2)
     
     with col_vol:
@@ -311,10 +317,9 @@ elif app_mode == "💯 100% PROFIT":
         else:
             st.write("Awaiting live volume data...")
 
-    # Optional: You can put a quick summary or another metric in col_google to balance the UI
     with col_google:
         st.markdown("### 💡 Quick Pulse")
-        if not data.empty:
+        if not data.empty and len(data) > 1:
             pulse_chg = data['Close'].iloc[-1] - data['Open'].iloc[-1]
             if pulse_chg >= 0:
                 st.success(f"Session is currently Bullish (Up ₹{pulse_chg:.2f})")
@@ -334,14 +339,14 @@ elif app_mode == "💯 100% PROFIT":
         with tf_cols[i]:
             try:
                 tf_data = yf.download(tickers=ticker_symbol, period="1d", interval=tf, progress=False)
-                if not tf_data.empty and len(tf_data) > 2:
+                if not tf_data.empty and len(tf_data) > 1:
                     if isinstance(tf_data.columns, pd.MultiIndex):
                         tf_data.columns = tf_data.columns.get_level_values(0)
                     
                     c_price = tf_data['Close'].iloc[-1]
-                    p_price = tf_data['Close'].iloc[-2]
+                    p_price = tf_data['Close'].iloc[-2] if len(tf_data) > 1 else c_price
                     
-                    if c_price > p_price:
+                    if c_price >= p_price:
                         st.markdown(f"""
                         <div style="background-color:rgba(0, 200, 83, 0.1); border: 1px solid #00C853; padding: 10px; border-radius: 5px; text-align: center;">
                             <h4 style="color: #00C853; margin:0;">{tf}</h4>
