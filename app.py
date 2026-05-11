@@ -294,27 +294,33 @@ elif app_mode == "💯 100% PROFIT":
     st.write(f"**NSE Ticker:** {current_stock_info['Symbol']} | **ISIN:** {current_stock_info['ISIN']}")
     st.markdown("---")
 
-    # --- RESTORED: LIVE MARKET FLOW & VOLUME ---
-    st.markdown("### 🌊 Live Market Flow (Volume)")
-    if not data.empty:
-        current_volume = int(data['Volume'].iloc[-1])
-        open_price = data['Open'].iloc[-1]
-        close_price = data['Close'].iloc[-1]
-        
-        if close_price >= open_price:
-            buy_est = int(current_volume * 0.65)
+    # --- YOUR RESTORED MARKET FLOW BLOCK ---
+    col_vol, col_google = st.columns(2)
+    
+    with col_vol:
+        st.markdown("### 🌊 Live Market Flow")
+        if not data.empty:
+            current_volume = int(data['Volume'].iloc[-1])
+            open_price = data['Open'].iloc[-1]
+            close_price = data['Close'].iloc[-1]
+            buy_est = int(current_volume * 0.65) if close_price >= open_price else int(current_volume * 0.35)
             sell_est = current_volume - buy_est
+            st.metric("Current Total Volume", f"{current_volume:,}")
+            st.write(f"🟢 **Shares Bought (Est):** {buy_est:,}")
+            st.write(f"🔴 **Shares Sold (Est):** {sell_est:,}")
         else:
-            sell_est = int(current_volume * 0.65)
-            buy_est = current_volume - sell_est
+            st.write("Awaiting live volume data...")
 
-        c_vol, c_buy, c_sell = st.columns(3)
-        c_vol.metric("Current Total Volume", f"{current_volume:,}")
-        c_buy.metric("🟢 Shares Bought (Est)", f"{buy_est:,}")
-        c_sell.metric("🔴 Shares Sold (Est)", f"{sell_est:,}")
-    else:
-        st.write("Awaiting live volume data...")
-
+    # Optional: You can put a quick summary or another metric in col_google to balance the UI
+    with col_google:
+        st.markdown("### 💡 Quick Pulse")
+        if not data.empty:
+            pulse_chg = data['Close'].iloc[-1] - data['Open'].iloc[-1]
+            if pulse_chg >= 0:
+                st.success(f"Session is currently Bullish (Up ₹{pulse_chg:.2f})")
+            else:
+                st.error(f"Session is currently Bearish (Down ₹{abs(pulse_chg):.2f})")
+    
     st.markdown("---")
 
     # ==========================================
