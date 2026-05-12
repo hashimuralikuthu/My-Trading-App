@@ -41,7 +41,7 @@ def save_wallet():
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
-app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL"])
+app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE"])
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -515,7 +515,7 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
             base_1m_data = pd.DataFrame()
 
     if not base_1m_data.empty:
-        st.markdown("### ⏱️ Multi-Timeframe Matrix (Score out of 100)")
+        st.markdown("### ⏱️ Multi-Timeframe Matrix (Members Voting)")
         tf_cols = st.columns(len(timeframes))
         
         # We will save the 1-minute detailed breakdown to display side-by-side later
@@ -670,6 +670,180 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
             with st.container(height=600):
                 for ind in detailed_sell_list:
                     st.markdown(f"❌ {ind}")
+
+    else:
+        st.error("Market Data Unavailable right now. Trying to re-connect...")
+
+# ==========================================
+# PAGE 4: THE FUTURE (PREDICTIVE HORIZON)
+# ==========================================
+elif app_mode == "🔮 THE FUTURE":
+    st.title("🔮 The Future: Predictive Horizon")
+    st.markdown("---")
+    
+    st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
+    st.info("Calculating forward-looking probabilities for the next candle. Generating predictions by analyzing momentum strength across 8 unique timeframes.")
+
+    # Timeframes requested: 1, 2, 3, 5, 10, 15, 30, 60 minutes
+    timeframes = ['1min', '2min', '3min', '5min', '10min', '15min', '30min', '60min']
+    display_tf = ['1m', '2m', '3m', '5m', '10m', '15m', '30m', '60m']
+    
+    # We download 1m data for 7 days to give enough data points to resample into a 60min chart
+    with st.spinner("Calculating the Predictive Horizon... Fetching Live Data..."):
+        try:
+            base_1m_data = yf.download(tickers=ticker_symbol, period="7d", interval="1m", progress=False)
+            if isinstance(base_1m_data.columns, pd.MultiIndex):
+                base_1m_data.columns = base_1m_data.columns.get_level_values(0)
+        except Exception as e:
+            base_1m_data = pd.DataFrame()
+
+    if not base_1m_data.empty:
+        st.markdown("### 📈 Probability of Next Candle Trend")
+        tf_cols = st.columns(len(timeframes))
+        
+        # Save 5-minute future breakdown for side-by-side view
+        detailed_bull_future = []
+        detailed_bear_future = []
+        
+        for i, tf in enumerate(timeframes):
+            with tf_cols[i]:
+                try:
+                    df = base_1m_data.resample(tf).agg({
+                        'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
+                    }).dropna()
+                    
+                    if len(df) > 5:  # Lowered restriction to allow 60m calculations on 7-day data
+                        close = df['Close']
+                        high = df['High']
+                        low = df['Low']
+                        vol = df['Volume']
+                        
+                        bull_momentum = []
+                        bear_pressure = []
+                        
+                        periods = [5, 8, 10, 13, 15, 20, 25, 30, 40, 50]
+                        
+                        # Apply min_periods=1 to ensure calculations work even on shorter DataFrames (like the 60m resample)
+                        for p in periods:
+                            sma = close.rolling(window=p, min_periods=1).mean()
+                            if close.iloc[-1] > sma.iloc[-1]: bull_momentum.append(f"Future SMA Bias ({p})")
+                            else: bear_pressure.append(f"Future SMA Bias ({p})")
+                            
+                        for p in periods:
+                            ema = close.ewm(span=p, adjust=False, min_periods=1).mean()
+                            if close.iloc[-1] > ema.iloc[-1]: bull_momentum.append(f"Future EMA Bias ({p})")
+                            else: bear_pressure.append(f"Future EMA Bias ({p})")
+                            
+                        for p in periods:
+                            fast = close.ewm(span=p, adjust=False, min_periods=1).mean()
+                            slow = close.ewm(span=p*2, adjust=False, min_periods=1).mean()
+                            if fast.iloc[-1] > slow.iloc[-1]: bull_momentum.append(f"Future MACD Curve ({p}/{p*2})")
+                            else: bear_pressure.append(f"Future MACD Curve ({p}/{p*2})")
+                            
+                        for p in periods:
+                            hh = high.rolling(window=p, min_periods=1).max()
+                            ll = low.rolling(window=p, min_periods=1).min()
+                            mid = (hh + ll) / 2
+                            if close.iloc[-1] > mid.iloc[-1]: bull_momentum.append(f"Future Channel Pull ({p})")
+                            else: bear_pressure.append(f"Future Channel Pull ({p})")
+                            
+                        delta = close.diff()
+                        gain = (delta.where(delta > 0, 0))
+                        loss = (-delta.where(delta < 0, 0))
+                        for p in periods:
+                            avg_gain = gain.rolling(window=p, min_periods=1).mean()
+                            avg_loss = loss.rolling(window=p, min_periods=1).mean()
+                            rs = avg_gain / (avg_loss + 1e-9)
+                            rsi = 100 - (100 / (1 + rs))
+                            if rsi.iloc[-1] > 50: bull_momentum.append(f"Future RSI Velocity ({p})")
+                            else: bear_pressure.append(f"Future RSI Velocity ({p})")
+                            
+                        for p in periods:
+                            roc = ((close - close.shift(p)) / (close.shift(p) + 1e-9)) * 100
+                            if roc.iloc[-1] > 0: bull_momentum.append(f"Future ROC Push ({p})")
+                            else: bear_pressure.append(f"Future ROC Push ({p})")
+                            
+                        for p in periods:
+                            stoch_ll = low.rolling(window=p, min_periods=1).min()
+                            stoch_hh = high.rolling(window=p, min_periods=1).max()
+                            stoch = 100 * ((close - stoch_ll) / (stoch_hh - stoch_ll + 1e-9))
+                            if stoch.iloc[-1] > 50: bull_momentum.append(f"Future Stoch Arc ({p})")
+                            else: bear_pressure.append(f"Future Stoch Arc ({p})")
+                            
+                        for p in periods:
+                            sma = close.rolling(window=p, min_periods=1).mean()
+                            if close.iloc[-1] > sma.iloc[-1]: bull_momentum.append(f"Future Bollinger Launch ({p})")
+                            else: bear_pressure.append(f"Future Bollinger Drag ({p})")
+                            
+                        for p in periods:
+                            vol_sma = vol.rolling(window=p, min_periods=1).mean()
+                            if close.iloc[-1] >= close.iloc[-2] and vol.iloc[-1] > vol_sma.iloc[-1]: 
+                                bull_momentum.append(f"Future Volatility Expansion ({p})")
+                            else: 
+                                bear_pressure.append(f"Future Volatility Decay ({p})")
+                            
+                        typ_price = (high + low + close) / 3
+                        for p in periods:
+                            vp = typ_price * vol
+                            vwap_p = vp.rolling(window=p, min_periods=1).sum() / (vol.rolling(window=p, min_periods=1).sum() + 1e-9)
+                            if close.iloc[-1] > vwap_p.iloc[-1]: bull_momentum.append(f"Future Institutional Flow ({p})")
+                            else: bear_pressure.append(f"Future Institutional Flow ({p})")
+                        
+                        if tf == '5min':
+                            detailed_bull_future = bull_momentum
+                            detailed_bear_future = bear_pressure
+
+                        bull_prob = len(bull_momentum)
+                        bear_prob = len(bear_pressure)
+                        
+                        if bull_prob > bear_prob:
+                            bg_col, bord_col, arrow = "rgba(0, 200, 83, 0.15)", "#00C853", "📈 UP"
+                        elif bear_prob > bull_prob:
+                            bg_col, bord_col, arrow = "rgba(255, 82, 82, 0.15)", "#FF5252", "📉 DOWN"
+                        else:
+                            bg_col, bord_col, arrow = "rgba(255, 167, 38, 0.15)", "#FFA726", "⚖️ NEUTRAL"
+                        
+                        st.markdown(f'''
+                        <div style="background-color:{bg_col}; border: 2px solid {bord_col}; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px;">
+                            <h4 style="margin:0; color: {bord_col};">{display_tf[i]}</h4>
+                            <h2 style="margin:5px 0; font-size: 24px; color: {bord_col};">{bull_prob}%</h2>
+                            <p style="margin:0; font-size: 10px; font-weight: bold;">{arrow}</p>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        
+                    else:
+                        st.warning(f"Wait {display_tf[i]}")
+                except Exception as e:
+                    st.error("Error")
+        
+        st.markdown("---")
+        st.markdown("### ⚖️ The 100 Indicator Future Breakdown (5-Minute Engine)")
+        
+        col_bull_side, col_bear_side = st.columns(2)
+        
+        with col_bull_side:
+            st.markdown(f'''
+            <div style="background-color:rgba(0, 200, 83, 0.1); border: 2px solid #00C853; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #00C853; margin:0;">📈 BULLISH MOMENTUM</h2>
+                <h1 style="color: #00C853; margin:0; font-size: 50px;">{len(detailed_bull_future)}% <span style="font-size:20px;">Probability</span></h1>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            with st.container(height=600):
+                for ind in detailed_bull_future:
+                    st.markdown(f"⬆️ {ind}")
+
+        with col_bear_side:
+            st.markdown(f'''
+            <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #FF5252; margin:0;">📉 BEARISH PRESSURE</h2>
+                <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)}% <span style="font-size:20px;">Probability</span></h1>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            with st.container(height=600):
+                for ind in detailed_bear_future:
+                    st.markdown(f"⬇️ {ind}")
 
     else:
         st.error("Market Data Unavailable right now. Trying to re-connect...")
