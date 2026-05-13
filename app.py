@@ -934,21 +934,27 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         trend_log = f"Price (₹{c_price:.2f}) is currently **{'above' if c_price > ema50 else 'below'}** the 50 EMA macro line. Long term structure is {'Bullish' if c_price > sma200 else 'Bearish'}."
         
         vwap_log = f"Institutional Baseline (VWAP) sits at ₹{current_vwap:.2f}. The asset is trading **{'above' if c_price > current_vwap else 'below'}** this liquidity zone, showing smart money is {'accumulating' if c_price > current_vwap else 'distributing'}."
-        
-        rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. This indicates the asset is {'dangerously overbought and due for a crash' if rsi > 75 else 'oversold and primed for a bounce' if rsi < 30 else 'in a healthy channel with room to move'}."
 
-        st.markdown(f'''
-        <div style="background-color:rgba(20, 20, 20, 0.8); border: 1px solid #333333; padding: 20px; border-radius: 10px;">
-            <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Macro Trend...</p>
-            <p style="color: #CCCCCC; margin-bottom: 15px;">{trend_log}</p>
-            
-            <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Order Flow & VWAP...</p>
-            <p style="color: #CCCCCC; margin-bottom: 15px;">{vwap_log}</p>
-            
-            <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Calculating Velocity & Reversion...</p>
-            <p style="color: #CCCCCC; margin-bottom: 0;">{rsi_log}</p>
-        </div>
-        ''', unsafe_allow_html=True)
+        # Upgraded Gemini RSI Logic
+        if rsi >= 75:
+            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is dangerously overbought. High probability of a sharp pullback."
+        elif 55 <= rsi < 75:
+            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bullish momentum is locked in. Buyers are in control."
+        elif 45 <= rsi < 55:
+            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The market is flat and indecisive (Neutral Zone). Waiting for volume to pick a direction."
+        elif 30 < rsi < 45:
+            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bearish pressure is mounting. The asset has room to drop further before finding a floor."
+        else:
+            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is severely oversold. Look for wick rejections signaling a violent bounce upward."
+
+        st.markdown(f"""<div style="background-color:rgba(20, 20, 20, 0.8); border: 1px solid #333333; padding: 20px; border-radius: 10px;">
+<p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Macro Trend...</p>
+<p style="color: #CCCCCC; margin-bottom: 15px;">{trend_log}</p>
+<p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Order Flow & VWAP...</p>
+<p style="color: #CCCCCC; margin-bottom: 15px;">{vwap_log}</p>
+<p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Calculating Velocity & Reversion...</p>
+<p style="color: #CCCCCC; margin-bottom: 0;">{rsi_log}</p>
+</div>""", unsafe_allow_html=True)
 
     else:
         st.error("Market Data Unavailable. Waiting for connection to the exchange...")
@@ -959,3 +965,5 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
 if live_mode:
     time.sleep(10)
     st.rerun()
+
+    
