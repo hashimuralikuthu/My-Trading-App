@@ -43,7 +43,7 @@ st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
 
-# [Fix Applied] Streamlit-ൻ്റെ സാധാരണ മെനു (ഇത് തനിയെ പേജ് ഓർമ്മിച്ചോളും, ക്ലാഷ് ഉണ്ടാകില്ല)
+# [Fix Applied] ബ്ലിങ്കിങ് ഒഴിവാക്കാൻ ഏറ്റവും ലളിതമായ മെനു നൽകിയിരിക്കുന്നു
 app_mode = st.sidebar.selectbox(
     "Select Page", 
     ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"]
@@ -95,7 +95,7 @@ instrument_key = current_stock_info['Upstox_Key']
 
 col1, col2 = st.sidebar.columns(2)
 with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
-with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=3) # Default 5 min
+with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=0)
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 App Theme")
