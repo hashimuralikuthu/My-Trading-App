@@ -9,6 +9,12 @@ import time
 import json
 import os
 
+# [Blink Fix] പേജുകൾ കൂട്ടിയിടിക്കാതിരിക്കാനുള്ള മാജിക് ട്രാക്കർ
+if 'run_id' not in st.session_state:
+    st.session_state['run_id'] = 0
+st.session_state['run_id'] += 1
+current_run_id = st.session_state['run_id']
+
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
@@ -964,7 +970,10 @@ with main_page:
             st.error("Market Data Unavailable. Waiting for connection to the exchange...")
 
 # ==========================================
-# ALWAYS LIVE ENGINE (Auto Refresh every 5 sec)
+# ALWAYS LIVE ENGINE (Auto Refresh safely)
 # ==========================================
 time.sleep(5) 
-st.rerun()
+
+# [Blink Fix] പുതിയ പേജ് ലോഡ് ആകുമ്പോൾ പഴയതിനെ തടയുന്നു
+if st.session_state['run_id'] == current_run_id:
+    st.rerun()
