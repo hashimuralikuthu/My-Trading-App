@@ -1,5 +1,4 @@
 import streamlit as st
-import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
@@ -9,8 +8,12 @@ import io
 import time
 import json
 import os
-import urllib.parse
-import xml.etree.ElementTree as ET
+
+# ==========================================
+# 0. UPSTOX API CONFIGURATION
+# ==========================================
+# ഇവിടെ നിങ്ങളുടെ യഥാർത്ഥ Upstox Access Token നൽകുക
+UPSTOX_TOKEN = eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.MujLIPZoZSvwVPheINd3yFL9GHhBKHqX90pT-BUnRRQ
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -41,7 +44,7 @@ st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 st.sidebar.title("👑 Terminal Menu")
 app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"])
 
-# --- ADVANCED NSE TICKER & DATA FETCHING ---
+# --- ADVANCED NSE TICKER & UPSTOX DATA FETCHING ---
 @st.cache_data(ttl=86400)
 def get_all_nse_data():
     try:
@@ -52,22 +55,24 @@ def get_all_nse_data():
         df.columns = df.columns.str.strip()
         df = df[df['SERIES'] == 'EQ']
         df['Display Name'] = df['NAME OF COMPANY'] + " (" + df['SYMBOL'] + ")"
-        df['Yahoo Ticker'] = df['SYMBOL'].astype(str) + ".NS"
+        
         stock_data = {}
         for _, row in df.iterrows():
             stock_data[row['Display Name']] = {
-                'Ticker': row['Yahoo Ticker'],
                 'Name': row['NAME OF COMPANY'],
                 'Symbol': row['SYMBOL'],
                 'ISIN': row['ISIN NUMBER'],
+                # Yahoo ക്ക് പകരം Upstox Instrument Key ഉണ്ടാക്കുന്നു
+                'Upstox_Key': f"NSE_EQ|{row['ISIN NUMBER']}", 
                 'Listing_Date': row['DATE OF LISTING'],
                 'Face_Value': row['FACE VALUE']
             }
         return stock_data
     except Exception as e:
+        # Fallback Data
         return {
-            "Zomato Limited (ZOMATO)": {'Ticker': 'ZOMATO.NS', 'Name': 'Zomato Limited', 'Symbol': 'ZOMATO', 'ISIN': 'INE758T01015', 'Listing_Date': '23-JUL-2021', 'Face_Value': '1'},
-            "Reliance Industries Limited (RELIANCE)": {'Ticker': 'RELIANCE.NS', 'Name': 'Reliance Industries Limited', 'Symbol': 'RELIANCE', 'ISIN': 'INE002A01018', 'Listing_Date': '29-NOV-1995', 'Face_Value': '10'}
+            "Zomato Limited (ZOMATO)": {'Name': 'Zomato Limited', 'Symbol': 'ZOMATO', 'ISIN': 'INE758T01015', 'Upstox_Key': 'NSE_EQ|INE758T01015', 'Listing_Date': '23-JUL-2021', 'Face_Value': '1'},
+            "Reliance Industries Limited (RELIANCE)": {'Name': 'Reliance Industries Limited', 'Symbol': 'RELIANCE', 'ISIN': 'INE002A01018', 'Upstox_Key': 'NSE_EQ|INE002A01018', 'Listing_Date': '29-NOV-1995', 'Face_Value': '10'}
         }
 
 stock_data = get_all_nse_data()
@@ -83,11 +88,12 @@ for i, name in enumerate(stock_display_names):
 st.sidebar.header("🎯 Market Explorer")
 selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index)
 current_stock_info = stock_data[selected_display_name]
-ticker_symbol = current_stock_info['Ticker']
+instrument_key = current_stock_info['Upstox_Key'] # ഇതാണ് Upstox-ന് വേണ്ടത്
 
 col1, col2 = st.sidebar.columns(2)
-with col1: time_period = st.selectbox("Period", ["1d", "5d", "1mo", "3mo", "6mo", "1y"], index=0)
-with col2: time_interval = st.selectbox("Candle", ["1m", "5m", "15m", "30m", "1h", "1d"], index=0)
+# Upstox API supports limited intervals, mapping them here
+with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
+with col2: time_interval = st.selectbox("Candle", ["1m", "30m", "1d"], index=0)
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 App Theme")
@@ -108,18 +114,33 @@ st.sidebar.markdown("---")
 st.sidebar.header("⚡ Live Engine")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 
-# Data Fetching Logic
-@st.cache_data(ttl=30)
-def load_data(ticker, period, interval):
+# ==========================================
+# UPSTOX LIVE DATA ENGINE
+# ==========================================
+@st.cache_data(ttl=2) # 2 സെക്കൻഡ് കാഷെ വഴി ലൈവ് ഡാറ്റ നൽകുന്നു
+def load_upstox_data(inst_key, interval_choice="1m"):
+    interval_map = {"1m": "1minute", "30m": "30minute", "1d": "day"}
+    upstox_interval = interval_map.get(interval_choice, "1minute")
+    
+    url = f'https://api.upstox.com/v2/historical-candle/intraday/{inst_key}/{upstox_interval}'
+    headers = {'Accept': 'application/json', 'Authorization': f'Bearer {UPSTOX_TOKEN}'}
+    
     try:
-        data = yf.download(tickers=ticker, period=period, interval=interval, progress=False)
-        if data.empty: return pd.DataFrame()
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
-        return data
-    except: return pd.DataFrame()
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()['data']['candles']
+            df = pd.DataFrame(data, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume', 'OI'])
+            df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+            df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)
+            df.set_index('Timestamp', inplace=True)
+            df = df.sort_index()
+            return df
+    except Exception as e:
+        pass
+    return pd.DataFrame()
 
-data = load_data(ticker_symbol, time_period, time_interval)
+# പഴയ യാഹൂ ഫിനാൻസിന് പകരം Upstox ഡാറ്റ വിളിക്കുന്നു
+data = load_upstox_data(instrument_key, time_interval)
 
 # Initialize Session State for Wallet
 saved_wallet = load_wallet()
@@ -132,7 +153,7 @@ if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wa
 # PAGE 1: TRADING TERMINAL
 # ==========================================
 if app_mode == "📈 Trading Terminal":
-    st.title("👑 Hashim Egod Trading Terminal V26")
+    st.title("👑 Hashim Egod Trading Terminal V26 (Upstox Live)")
 
     st.sidebar.markdown("---")
     st.sidebar.header("💼 Hashim Egod Wallet")
@@ -147,11 +168,11 @@ if app_mode == "📈 Trading Terminal":
         
         global_margin += p_data['margin']
         
-        if t == ticker_symbol and current_live_price > 0:
+        if t == instrument_key and current_live_price > 0:
             live_p = current_live_price
         else:
             try:
-                bg_data = yf.Ticker(t).history(period="1d", interval="1m")
+                bg_data = load_upstox_data(t, "1m")
                 live_p = bg_data['Close'].iloc[-1] if not bg_data.empty else p_data['entry']
             except:
                 live_p = p_data['entry']
@@ -162,7 +183,7 @@ if app_mode == "📈 Trading Terminal":
     net_wealth = st.session_state['balance'] + global_margin + global_unrealized_pnl
     total_pnl = net_wealth - st.session_state['initial_capital']
 
-    pos = st.session_state['portfolio'].get(ticker_symbol, {'qty': 0, 'entry': 0, 'margin': 0, 'type': None})
+    pos = st.session_state['portfolio'].get(instrument_key, {'qty': 0, 'entry': 0, 'margin': 0, 'type': None})
     local_pnl = 0.0
     if pos['qty'] > 0:
         if pos['type'] == 'BUY': local_pnl = (current_live_price - pos['entry']) * pos['qty']
@@ -206,7 +227,7 @@ if app_mode == "📈 Trading Terminal":
                         cost = current_live_price * trade_qty
                         if st.session_state['balance'] >= cost:
                             st.session_state['balance'] -= cost
-                            st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'BUY'}
+                            st.session_state['portfolio'][instrument_key] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'BUY'}
                             save_wallet(); st.rerun()
                         else: st.sidebar.error("Not enough funds!")
                 with col_sell:
@@ -214,14 +235,14 @@ if app_mode == "📈 Trading Terminal":
                         cost = current_live_price * trade_qty
                         if st.session_state['balance'] >= cost:
                             st.session_state['balance'] -= cost
-                            st.session_state['portfolio'][ticker_symbol] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'SHORT'}
+                            st.session_state['portfolio'][instrument_key] = {'qty': trade_qty, 'entry': current_live_price, 'margin': cost, 'type': 'SHORT'}
                             save_wallet(); st.rerun()
                         else: st.sidebar.error("Not enough funds!")
         else:
             st.sidebar.info(f"Open {pos['type']} position of {pos['qty']} shares.")
             if st.sidebar.button("⏹️ SQUARE OFF (Kill the Pain)", use_container_width=True, type="primary"):
                 st.session_state['balance'] += pos['margin'] + local_pnl
-                del st.session_state['portfolio'][ticker_symbol] 
+                del st.session_state['portfolio'][instrument_key] 
                 save_wallet(); st.rerun()
 
     if not data.empty and len(data) > 1:
@@ -307,7 +328,7 @@ if app_mode == "📈 Trading Terminal":
             paper_bgcolor=bg_color,
             dragmode='zoom', 
             hovermode='x unified',
-            uirevision=ticker_symbol 
+            uirevision=instrument_key 
         )
         
         st.plotly_chart(fig, use_container_width=True, config={
@@ -461,18 +482,13 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
     st.markdown("---")
     
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
-    st.info("Live calculating EXACTLY 100 unique, crash-proof indicators.")
+    st.info("Live calculating EXACTLY 100 unique, crash-proof indicators using Upstox Live Data.")
 
     timeframes = ['1min', '2min', '3min', '5min', '10min', '15min', '30min']
     display_tf = ['1m', '2m', '3m', '5m', '10m', '15m', '30m']
     
     with st.spinner("Summoning the 200 Members... Fetching & Vectorizing Live Data..."):
-        try:
-            base_1m_data = yf.download(tickers=ticker_symbol, period="7d", interval="1m", progress=False)
-            if isinstance(base_1m_data.columns, pd.MultiIndex):
-                base_1m_data.columns = base_1m_data.columns.get_level_values(0)
-        except Exception as e:
-            base_1m_data = pd.DataFrame()
+        base_1m_data = load_upstox_data(instrument_key, "1m")
 
     if not base_1m_data.empty:
         st.markdown("### ⏱️ Multi-Timeframe Matrix (Exact Votes out of 100)")
@@ -636,18 +652,13 @@ elif app_mode == "🔮 THE FUTURE":
     st.markdown("---")
     
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
-    st.info("Calculating 100 Forward-looking crash-proof probabilities across 8 timeframes.")
+    st.info("Calculating 100 Forward-looking crash-proof probabilities across 8 timeframes using Upstox.")
 
     timeframes = ['1min', '2min', '3min', '5min', '10min', '15min', '30min', '60min']
     display_tf = ['1m', '2m', '3m', '5m', '10m', '15m', '30m', '60m']
     
     with st.spinner("Calculating the Predictive Horizon... Fetching Live Data..."):
-        try:
-            base_1m_data = yf.download(tickers=ticker_symbol, period="7d", interval="1m", progress=False)
-            if isinstance(base_1m_data.columns, pd.MultiIndex):
-                base_1m_data.columns = base_1m_data.columns.get_level_values(0)
-        except Exception as e:
-            base_1m_data = pd.DataFrame()
+        base_1m_data = load_upstox_data(instrument_key, "1m")
 
     if not base_1m_data.empty:
         st.markdown("### 📈 Probability of Next Candle Trend (Out of 100)")
@@ -814,16 +825,10 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
     st.markdown("---")
     
     st.subheader(f"🎯 Target Acquired: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
-    st.info("I am analyzing the live tape. Synthesizing Volume, Volatility, and Macro Trend to deliver my final trading verdict.")
+    st.info("I am analyzing the live Upstox tape. Synthesizing Volume, Volatility, and Macro Trend to deliver my final trading verdict.")
 
     with st.spinner("Gemini is reading the market data..."):
-        try:
-            # We fetch 7 days of 1-minute data for deep analysis
-            g_data = yf.download(tickers=ticker_symbol, period="7d", interval="1m", progress=False)
-            if isinstance(g_data.columns, pd.MultiIndex):
-                g_data.columns = g_data.columns.get_level_values(0)
-        except:
-            g_data = pd.DataFrame()
+        g_data = load_upstox_data(instrument_key, "1m")
 
     if not g_data.empty and len(g_data) > 50:
         # --- GEMINI AI MATH ENGINE ---
@@ -960,10 +965,10 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         st.error("Market Data Unavailable. Waiting for connection to the exchange...")
 
 # ==========================================
-# LIVE ENGINE TRIGGER
+# LIVE ENGINE TRIGGER (Speed Up!)
 # ==========================================
 if live_mode:
-    time.sleep(10)
+    # മില്ലിസെക്കൻഡിന് പകരം 2 സെക്കൻഡ് നൽകിയിരിക്കുന്നു. 
+    # ഇത് വളരെ വേഗത്തിൽ മാർക്കറ്റിലെ മാറ്റങ്ങൾ പിടിച്ചെടുക്കും.
+    time.sleep(2) 
     st.rerun()
-
-    
