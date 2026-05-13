@@ -13,7 +13,7 @@ import os
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
 # നിങ്ങളുടെ പുതിയ ടോക്കൺ ഇവിടെ നൽകുക
-UPSTOX_TOKEN = " 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA', 'extended_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTAyNDU2MDB9.4kLVMXLQo-CEknzLJk89ST-8ReqzrtOfO6yxGd5XYlE'}"
+UPSTOX_TOKEN = " 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.MujLIPZoZSvwVPheINd3yFL9GHhBKHqX90pT-BUnRRQ', 'extended_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTAyNDU2MDB9.4kLVMXLQo-CEknzLJk89ST-8ReqzrtOfO6yxGd5XYlE'}"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -94,7 +94,6 @@ instrument_key = current_stock_info['Upstox_Key']
 
 col1, col2 = st.sidebar.columns(2)
 with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
-# പുതിയ കാൻഡിലുകൾ ഇവിടെ ഉൾപ്പെടുത്തിയിട്ടുണ്ട്!
 with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=3)
 
 st.sidebar.markdown("---")
@@ -119,7 +118,6 @@ st.sidebar.markdown("---")
 # ==========================================
 @st.cache_data(ttl=5) 
 def fetch_upstox_1m_data(inst_key):
-    # എപ്പോഴും 1 മിനിറ്റ് ഡാറ്റ മാത്രം എടുക്കുന്നു
     url = f'https://api.upstox.com/v2/historical-candle/intraday/{inst_key}/1minute'
     headers = {'Accept': 'application/json', 'Authorization': f'Bearer {UPSTOX_TOKEN}'}
     try:
@@ -138,11 +136,9 @@ def fetch_upstox_1m_data(inst_key):
         pass
     return pd.DataFrame()
 
-# ആപ്പിന് മുഴുവൻ ആവശ്യമായ ഡാറ്റ ഒരൊറ്റ തവണ എടുക്കുന്നു
 base_data = fetch_upstox_1m_data(instrument_key)
 
 def get_chart_data(df, interval):
-    # 1 മിനിറ്റ് ഡാറ്റയെ ആവശ്യമുള്ള കാൻഡിലുകളാക്കി മാറ്റുന്നു
     if df.empty: return df
     if interval == "1m": return df.tail(150)
     
@@ -151,7 +147,6 @@ def get_chart_data(df, interval):
     res_df = df.resample(rule).agg(agg_dict).dropna()
     return res_df.tail(150)
 
-# ട്രേഡിംഗ് ടെർമിനലിന് വേണ്ട ഡാറ്റ
 data = get_chart_data(base_data, time_interval)
 
 saved_wallet = load_wallet()
@@ -160,13 +155,16 @@ if 'balance' not in st.session_state: st.session_state['balance'] = saved_wallet
 if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wallet['portfolio'] if saved_wallet else {} 
 
 
-# ബ്ലിങ്കിങ് ഒഴിവാക്കാൻ മെയിൻ കോഡ് ഒരു കണ്ടെയ്നറിലേക്ക് മാറ്റുന്നു
+# ==========================================
+# PAGE NAVIGATION & CONTENT
+# ==========================================
 main_page = st.container()
 
 with main_page:
-    # ==========================================
+    
+    # ----------------------------------------
     # PAGE 1: TRADING TERMINAL
-    # ==========================================
+    # ----------------------------------------
     if app_mode == "📈 Trading Terminal":
         st.title("👑 Hashim Egod Trading Terminal V26 (Upstox Live)")
 
@@ -340,7 +338,7 @@ with main_page:
                 paper_bgcolor=bg_color,
                 dragmode='zoom', 
                 hovermode='x unified',
-                uirevision=instrument_key + time_interval
+                uirevision=instrument_key
             )
             
             st.plotly_chart(fig, use_container_width=True, config={
@@ -350,9 +348,9 @@ with main_page:
                 'modeBarButtonsToAdd': ['drawline', 'drawcircle', 'eraseshape']
             })
 
-    # ==========================================
+    # ----------------------------------------
     # PAGE 2: 100% PROFIT (COUNCIL OF 10)
-    # ==========================================
+    # ----------------------------------------
     elif app_mode == "💯 100% PROFIT":
         st.title("💯 100% PROFIT: Advanced Council of 10")
         st.markdown("---")
@@ -486,9 +484,9 @@ with main_page:
         else:
             st.warning("Not enough data to convene the Council. Waiting for live market feed...")
 
-    # ==========================================
+    # ----------------------------------------
     # PAGE 3: 200 MEMBER COUNCIL (ALL 100 INDICATORS)
-    # ==========================================
+    # ----------------------------------------
     elif app_mode == "🏛️ 200 MEMBER COUNCIL":
         st.title("🏛️ The Grand Council of 200 (100 Indicators)")
         st.markdown("---")
@@ -653,9 +651,9 @@ with main_page:
         else:
             st.error("Market Data Unavailable right now. The market may be closed or offline.")
 
-    # ==========================================
+    # ----------------------------------------
     # PAGE 4: THE FUTURE (ALL 100 INDICATORS)
-    # ==========================================
+    # ----------------------------------------
     elif app_mode == "🔮 THE FUTURE":
         st.title("🔮 The Future: 100-Point Predictive Horizon")
         st.markdown("---")
@@ -823,9 +821,9 @@ with main_page:
         else:
             st.error("Market Data Unavailable right now. The market may be closed or offline.")
 
-    # ==========================================
+    # ----------------------------------------
     # PAGE 5: GEMINI SYNTHESIS ENGINE
-    # ==========================================
+    # ----------------------------------------
     elif app_mode == "🤖 GEMINI SYNTHESIS":
         st.title("🧠 Gemini Synthesis Engine")
         st.markdown("---")
