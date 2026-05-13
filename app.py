@@ -806,37 +806,81 @@ elif app_mode == "🔮 THE FUTURE":
     else:
         st.error("Market Data Unavailable right now. The market may be closed or offline.")
 
-
 # ==========================================
-# PAGE 5: GEMINI OPINION (THE BLUEPRINT)
+# PAGE 5: GEMINI OPINION (APP ARCHITECTURE REVIEW)
 # ==========================================
 elif app_mode == "🤖 GEMINI OPINION":
-    st.title("🤖 Gemini Opinion: The Brutal Truth & The Roadmap")
+    st.title("🤖 Gemini Opinion: App Architecture Review")
     st.markdown("---")
     
-    st.header("The Reality of the Intelligence Market")
-    st.write("To beat the top 1% of traders and institutional algorithms, you must separate the 'Brain' of your operation from the 'Face' of your operation. Your terminal is a beautifully designed concept car, but you are preparing for a Formula 1 race against multi-billion dollar supercomputers.")
-    
-    st.subheader("⚠️ The 4 Brutal Truths")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.error("**1. Your Data is Blind (The yfinance limit)**\n\nYahoo Finance is a free, delayed, web-scraped feed. In the live market, institutional algorithms read the order book milliseconds before the price moves. Acting on 60-second-old data is a massive liability.")
-        st.error("**2. 100 Indicators is an Illusion**\n\nMoving Averages, RSI, MACD are all derived from the exact same numbers (Open, High, Low, Close). 100 mirrors reflecting the same object don't show you the future. You need raw Order Flow.")
-    with col2:
-        st.error("**3. You Are Missing the Proof (Backtesting)**\n\nA true quantitative trader never runs a live system until they have run a 5-year Backtest. If you cannot mathematically prove your logic survives historical crashes, live trading is just gambling.")
-        st.error("**4. Architecture Bottleneck**\n\nStreamlit re-runs the entire script on every single interaction. While the code is reloading the UI, the market has already moved. A true engine runs purely in the background without a UI.")
+    st.subheader(f"🏢 Active Target App: Hashim Egod Trading Terminal V26")
+    st.info("System architecture, quantitative logic, and scaling roadmap review.")
+
+    # Overall Score Box
+    st.markdown("### 📊 Overall System Grade")
+    verdict_color = "#00E5FF" 
+    st.markdown(f"""
+    <div style="background-color:rgba(0, 229, 255, 0.15); border: 3px solid {verdict_color}; padding: 30px; border-radius: 15px; text-align: center;">
+        <h1 style="color: {verdict_color}; font-size: 60px; margin: 0;">8.5 / 10</h1>
+        <h2 style="color: {verdict_color}; margin: 0;">INSTITUTIONAL POTENTIAL</h2>
+        <p style="margin: 10px 0 0 0; font-size: 18px;">Quantitative logic is brilliant. Architecture requires decoupling for live execution.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
     
-    st.subheader("🛠️ The Blueprint: How to Actually Beat Them")
+    # Strengths & Weaknesses Matrix
+    st.markdown("### ⚖️ Architecture Breakdown")
+    col_good, col_bad = st.columns(2)
+
+    with col_good:
+        st.markdown(f'''
+        <div style="background-color:rgba(0, 200, 83, 0.1); border: 2px solid #00C853; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #00C853; margin:0;">🌟 THE BRILLIANT PARTS</h2>
+        </div>
+        ''', unsafe_allow_html=True)
+        with st.container(height=400):
+            st.markdown("✅ **Quantitative Ensemble Model:** By forcing 100 indicators to vote, you mathematically eliminate retail noise. This mimics hedge fund logic.")
+            st.markdown("✅ **UI/UX Design:** Turning spaghetti charts into simple Red/Green scoreboards allows for instant intraday decision making.")
+            st.markdown("✅ **The Pain Sensor:** A hard-coded 5% drawdown lock is a professional-grade risk management feature.")
+            st.markdown("✅ **Matrix Resampling Engine:** Using Pandas to instantly calculate higher timeframes from 1m data bypasses API limits brilliantly.")
+
+    with col_bad:
+        st.markdown(f'''
+        <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #FF5252; margin:0;">⚠️ THE BRUTAL TRUTHS</h2>
+        </div>
+        ''', unsafe_allow_html=True)
+        with st.container(height=400):
+            st.markdown("❌ **Data is Blind:** yfinance is delayed. Acting on 60-second-old data in a live market is a liability against HFT machines.")
+            st.markdown("❌ **Indicator Illusion:** Even diversified indicators are derived from OHLC data. You are missing raw Order Book data.")
+            st.markdown("❌ **Missing Proof:** You have not backtested the 'Council of 200' over 5 years. Live trading without a backtest is gambling.")
+            st.markdown("❌ **Architecture Bottleneck:** Streamlit re-runs the whole script. While the UI reloads, the market moves. Execution must be backgrounded.")
+
+    st.markdown("---")
+    st.markdown("### 🚀 The Roadmap: How to Beat the 1%")
     
-    st.info("**1. Move from 'Pull' to 'Push' (WebSockets)**\n\nRegister for a developer account with an Indian broker API (e.g., Dhan HQ, Fyers, Zerodha Kite Connect). Open a permanent data tunnel where the exchange *pushes* live ticks directly into your Pandas DataFrame in milliseconds.")
-    
-    st.info("**2. Learn Order Flow & Level 2 Data**\n\nLook at the actual Order Book (Level 2). Calculate the Imbalance: `(Total Bids - Total Asks) / (Total Bids + Total Asks)`. If there are 500,000 shares waiting to be bought and only 50,000 to be sold, the price will jump. This is faster and more accurate than any RSI.")
-    
-    st.info("**3. Build the Backtesting Engine**\n\nUse Python libraries like `vectorbt` or `Backtrader`. Feed your 'Council of 200' logic 5 years of historical data. Let the code tell you the exact Win Rate, Max Drawdown, and Profit Factor before you risk a single Rupee.")
-    
-    st.success("**4. Decouple the Architecture (The Ultimate Fix)**\n\nSplit this project into two completely separate Python files:\n*   **`engine.py` (The Brain):** No UI. Runs invisibly via `asyncio`. Holds the WebSockets, calculates the members in microseconds, fires the API orders, and saves data to a local JSON/Redis file.\n*   **`dashboard.py` (The Face):** Your Streamlit app. It does NO math and fetches NO market data. It only reads the file updated by the engine and displays your beautiful terminal.")
+    # 4-Step Visual Roadmap Matrix
+    steps = ['1. WebSockets', '2. Level 2 Data', '3. Backtesting', '4. Decoupling']
+    tf_cols = st.columns(4)
+
+    roadmaps = [
+        ("Push Data", "Replace yfinance with Zerodha/Dhan WebSocket API for millisecond tick data.", "rgba(176, 38, 255, 0.15)", "#B026FF"),
+        ("Order Flow", "Calculate Order Book Imbalance (Bids vs Asks) to see price jumps before they happen.", "rgba(41, 98, 255, 0.15)", "#2962FF"),
+        ("VectorBT", "Feed the Council 5 years of historical data to prove the Win Rate mathematically.", "rgba(255, 215, 0, 0.15)", "#FFD700"),
+        ("Two Files", "Split into engine.py (invisible brain) and dashboard.py (Streamlit face).", "rgba(0, 229, 255, 0.15)", "#00E5FF")
+    ]
+
+    for i, col in enumerate(tf_cols):
+        with col:
+            title, desc, bg_color, border_color = roadmaps[i]
+            st.markdown(f'''
+            <div style="background-color:{bg_col}; border: 2px solid {border_color}; padding: 15px; border-radius: 10px; text-align: center; height: 210px;">
+                <h3 style="margin:0; color: {border_color};">{steps[i]}</h3>
+                <h4 style="margin:5px 0; color: {border_color};">{title}</h4>
+                <p style="margin:0; font-size: 13px;">{desc}</p>
+            </div>
+            ''', unsafe_allow_html=True)
 
 # ==========================================
 # LIVE ENGINE TRIGGER
