@@ -13,7 +13,7 @@ import os
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
 # നിങ്ങളുടെ പുതിയ ടോക്കൺ ഇവിടെ നൽകുക
-UPSTOX_TOKEN = "'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA', 'extended_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTAyNDU2MDB9.4kLVMXLQo-CEknzLJk89ST-8ReqzrtOfO6yxGd5XYlE'}"
+UPSTOX_TOKEN = " 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA', 'extended_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTAyNDU2MDB9.4kLVMXLQo-CEknzLJk89ST-8ReqzrtOfO6yxGd5XYlE'}"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -43,19 +43,11 @@ st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
 
-# പേജ് റീലോഡ് പ്രശ്നം പരിഹരിക്കാൻ session_state ഉപയോഗിക്കുന്നു
-if 'current_page' not in st.session_state:
-    st.session_state['current_page'] = "📈 Trading Terminal"
-
-selected_page = st.sidebar.selectbox(
+# [Fix Applied] Streamlit-ൻ്റെ സാധാരണ മെനു (ഇത് തനിയെ പേജ് ഓർമ്മിച്ചോളും, ക്ലാഷ് ഉണ്ടാകില്ല)
+app_mode = st.sidebar.selectbox(
     "Select Page", 
-    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"], 
-    index=["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"].index(st.session_state['current_page'])
+    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"]
 )
-
-st.session_state['current_page'] = selected_page
-app_mode = st.session_state['current_page']
-
 
 # --- ADVANCED NSE TICKER & UPSTOX DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -103,7 +95,7 @@ instrument_key = current_stock_info['Upstox_Key']
 
 col1, col2 = st.sidebar.columns(2)
 with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
-with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=0)
+with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=3) # Default 5 min
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 App Theme")
