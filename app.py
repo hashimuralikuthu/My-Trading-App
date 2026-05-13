@@ -959,5 +959,5 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
 # LIVE ENGINE TRIGGER (Fast Refresh: 0.5s)
 # ==========================================
 if live_mode:
-    time.sleep(0.5) 
+   time.sleep(5)
     st.rerun()
