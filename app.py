@@ -806,17 +806,17 @@ with main_page:
                     for ind in detailed_bull_future:
                         st.markdown(f"⬆️ {ind}")
 
-        with col_bear_side:
-            st.markdown(f'''
-            <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #FF5252; margin:0;">📉 BEARISH PROBABILITY</h2>
-                <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)}%</h1>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            with st.container(height=600):
-                for ind in detailed_bear_future:
-                    st.markdown(f"⬇️ {ind}")
+            with col_bear_side:
+                st.markdown(f'''
+                <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #FF5252; margin:0;">📉 BEARISH PROBABILITY</h2>
+                    <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)}%</h1>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                with st.container(height=600):
+                    for ind in detailed_bear_future:
+                        st.markdown(f"⬇️ {ind}")
 
         else:
             st.error("Market Data Unavailable right now. The market may be closed or offline.")
