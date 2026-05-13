@@ -12,8 +12,8 @@ import os
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
-# ഇവിടെ നിങ്ങളുടെ യഥാർത്ഥ Upstox Access Token നൽകുക
-UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.MujLIPZoZSvwVPheINd3yFL9GHhBKHqX90pT-BUnRRQ"
+# ഇവിടെ നിങ്ങളുടെ യഥാർത്ഥ Upstox Access Token നൽകുക (ഡബിൾ കോട്ട്സ് " " നിർബന്ധം)
+UPSTOX_TOKEN = "ഇവിടെ_നിങ്ങളുടെ_ടോക്കൺ_നൽകുക"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -62,14 +62,12 @@ def get_all_nse_data():
                 'Name': row['NAME OF COMPANY'],
                 'Symbol': row['SYMBOL'],
                 'ISIN': row['ISIN NUMBER'],
-                # Yahoo ക്ക് പകരം Upstox Instrument Key ഉണ്ടാക്കുന്നു
                 'Upstox_Key': f"NSE_EQ|{row['ISIN NUMBER']}", 
                 'Listing_Date': row['DATE OF LISTING'],
                 'Face_Value': row['FACE VALUE']
             }
         return stock_data
     except Exception as e:
-        # Fallback Data
         return {
             "Zomato Limited (ZOMATO)": {'Name': 'Zomato Limited', 'Symbol': 'ZOMATO', 'ISIN': 'INE758T01015', 'Upstox_Key': 'NSE_EQ|INE758T01015', 'Listing_Date': '23-JUL-2021', 'Face_Value': '1'},
             "Reliance Industries Limited (RELIANCE)": {'Name': 'Reliance Industries Limited', 'Symbol': 'RELIANCE', 'ISIN': 'INE002A01018', 'Upstox_Key': 'NSE_EQ|INE002A01018', 'Listing_Date': '29-NOV-1995', 'Face_Value': '10'}
@@ -88,10 +86,9 @@ for i, name in enumerate(stock_display_names):
 st.sidebar.header("🎯 Market Explorer")
 selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index)
 current_stock_info = stock_data[selected_display_name]
-instrument_key = current_stock_info['Upstox_Key'] # ഇതാണ് Upstox-ന് വേണ്ടത്
+instrument_key = current_stock_info['Upstox_Key'] 
 
 col1, col2 = st.sidebar.columns(2)
-# Upstox API supports limited intervals, mapping them here
 with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
 with col2: time_interval = st.selectbox("Candle", ["1m", "30m", "1d"], index=0)
 
@@ -115,9 +112,10 @@ st.sidebar.header("⚡ Live Engine")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 
 # ==========================================
-# UPSTOX LIVE DATA ENGINE
+# UPSTOX LIVE DATA ENGINE (FAST REFRESH)
 # ==========================================
-@st.cache_data(ttl=2) # 2 സെക്കൻഡ് കാഷെ വഴി ലൈവ് ഡാറ്റ നൽകുന്നു
+# Cache 0.5 സെക്കൻഡ് ആക്കി കുറച്ചു
+@st.cache_data(ttl=0.5) 
 def load_upstox_data(inst_key, interval_choice="1m"):
     interval_map = {"1m": "1minute", "30m": "30minute", "1d": "day"}
     upstox_interval = interval_map.get(interval_choice, "1minute")
@@ -134,20 +132,18 @@ def load_upstox_data(inst_key, interval_choice="1m"):
             df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)
             df.set_index('Timestamp', inplace=True)
             df = df.sort_index()
-            return df
+            # ഗ്രാഫ് വേഗത്തിൽ ലോഡ് ആകാൻ അവസാനത്തെ 150 കാൻഡിൽ മാത്രം എടുക്കുന്നു
+            return df.tail(150) 
     except Exception as e:
         pass
     return pd.DataFrame()
 
-# പഴയ യാഹൂ ഫിനാൻസിന് പകരം Upstox ഡാറ്റ വിളിക്കുന്നു
 data = load_upstox_data(instrument_key, time_interval)
 
-# Initialize Session State for Wallet
 saved_wallet = load_wallet()
 if 'initial_capital' not in st.session_state: st.session_state['initial_capital'] = saved_wallet['initial_capital'] if saved_wallet else 100000.0
 if 'balance' not in st.session_state: st.session_state['balance'] = saved_wallet['balance'] if saved_wallet else 100000.0  
 if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wallet['portfolio'] if saved_wallet else {} 
-
 
 # ==========================================
 # PAGE 1: TRADING TERMINAL
@@ -165,9 +161,7 @@ if app_mode == "📈 Trading Terminal":
     
     for t, p_data in list(st.session_state['portfolio'].items()):
         if p_data['qty'] <= 0: continue
-        
         global_margin += p_data['margin']
-        
         if t == instrument_key and current_live_price > 0:
             live_p = current_live_price
         else:
@@ -176,7 +170,6 @@ if app_mode == "📈 Trading Terminal":
                 live_p = bg_data['Close'].iloc[-1] if not bg_data.empty else p_data['entry']
             except:
                 live_p = p_data['entry']
-                
         if p_data['type'] == 'BUY': global_unrealized_pnl += (live_p - p_data['entry']) * p_data['qty']
         elif p_data['type'] == 'SHORT': global_unrealized_pnl += (p_data['entry'] - live_p) * p_data['qty']
 
@@ -328,7 +321,7 @@ if app_mode == "📈 Trading Terminal":
             paper_bgcolor=bg_color,
             dragmode='zoom', 
             hovermode='x unified',
-            uirevision=instrument_key 
+            uirevision=instrument_key # ഗ്രാഫ് റീഫ്രഷ് ആകുമ്പോൾ സൂം മാറിക്കാതിരിക്കാൻ
         )
         
         st.plotly_chart(fig, use_container_width=True, config={
@@ -874,15 +867,15 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         elif current_vol > vol_sma and c_price < close.iloc[-2]: ai_score -= 10
             
         # RSI Mean Reversion Guard
-        if rsi > 75: ai_score -= 20 # Overbought danger
-        elif rsi < 30: ai_score += 20 # Oversold bounce potential
-        elif 50 < rsi <= 75: ai_score += 5 # Healthy momentum
+        if rsi > 75: ai_score -= 20 
+        elif rsi < 30: ai_score += 20 
+        elif 50 < rsi <= 75: ai_score += 5 
         
         # Hard caps
         ai_score = max(0, min(100, ai_score))
         
         # --- VERDICT LOGIC ---
-        gemini_color = "#8A2BE2" # Deep AI Purple
+        gemini_color = "#8A2BE2" 
         
         if ai_score >= 75:
             v_text, v_color = "STRONG BUY", "#00C853"
@@ -935,12 +928,10 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         # --- BOTTOM UI: CHAIN OF THOUGHT ---
         st.markdown("### 🧬 Gemini's Chain of Thought (Analysis Log)")
         
-        # Dynamic Text Generation
         trend_log = f"Price (₹{c_price:.2f}) is currently **{'above' if c_price > ema50 else 'below'}** the 50 EMA macro line. Long term structure is {'Bullish' if c_price > sma200 else 'Bearish'}."
         
         vwap_log = f"Institutional Baseline (VWAP) sits at ₹{current_vwap:.2f}. The asset is trading **{'above' if c_price > current_vwap else 'below'}** this liquidity zone, showing smart money is {'accumulating' if c_price > current_vwap else 'distributing'}."
 
-        # Upgraded Gemini RSI Logic
         if rsi >= 75:
             rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is dangerously overbought. High probability of a sharp pullback."
         elif 55 <= rsi < 75:
@@ -965,10 +956,8 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         st.error("Market Data Unavailable. Waiting for connection to the exchange...")
 
 # ==========================================
-# LIVE ENGINE TRIGGER (Speed Up!)
+# LIVE ENGINE TRIGGER (Fast Refresh: 0.5s)
 # ==========================================
 if live_mode:
-    # മില്ലിസെക്കൻഡിന് പകരം 2 സെക്കൻഡ് നൽകിയിരിക്കുന്നു. 
-    # ഇത് വളരെ വേഗത്തിൽ മാർക്കറ്റിലെ മാറ്റങ്ങൾ പിടിച്ചെടുക്കും.
-    time.sleep(2) 
+    time.sleep(0.5) 
     st.rerun()
