@@ -985,6 +985,5 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
 # ==========================================
 # ALWAYS LIVE ENGINE (Auto Refresh every 5 sec)
 # ==========================================
-if live_mode:
-    time.sleep(5) 
-    st.rerun()
+time.sleep(5) 
+st.rerun()
