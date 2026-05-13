@@ -320,7 +320,7 @@ if app_mode == "📈 Trading Terminal":
         })
 
 # ==========================================
-# PAGE 2: 100% PROFIT (COUNCIL OF 10) - UPGRADED
+# PAGE 2: 100% PROFIT (COUNCIL OF 10)
 # ==========================================
 elif app_mode == "💯 100% PROFIT":
     st.title("💯 100% PROFIT: Advanced Council of 10")
@@ -328,7 +328,7 @@ elif app_mode == "💯 100% PROFIT":
 
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
     st.write(f"**NSE Ticker:** {current_stock_info['Symbol']} | **ISIN:** {current_stock_info['ISIN']}")
-    st.info("Upgraded: This council now uses Advanced Mean Reversion to prevent buying at the absolute top, and checks pure Order Flow (OBV) and Price Action wicks.")
+    st.info("Upgraded: This council uses Advanced Mean Reversion to prevent buying at the top, checks pure Order Flow (OBV), and Candlestick action.")
     st.markdown("---")
 
     col_vol, col_google = st.columns(2)
@@ -397,45 +397,35 @@ elif app_mode == "💯 100% PROFIT":
         votes = 0
         council_logic = []
 
-        # 1. SMART CANDLESTICK WICK (Price Action)
         if c_close > (c_high - ((c_high - c_low) * 0.25)): 
             votes += 1; council_logic.append("🟢 Candlestick Expert: Strong Closing Price / Bullish Wick Rejection (Buy)")
         else: council_logic.append("🔴 Candlestick Expert: Weak Closing Price (Sell)")
         
-        # 2. SMA TREND
         if c_close > sma20.iloc[-1]: votes += 1; council_logic.append("🟢 SMA Expert: Price above 20 SMA (Buy)")
         else: council_logic.append("🔴 SMA Expert: Price below 20 SMA (Sell)")
 
-        # 3. EMA MACRO
         if c_close > ema50.iloc[-1]: votes += 1; council_logic.append("🟢 EMA Expert: Price above 50 EMA Macro Trend (Buy)")
         else: council_logic.append("🔴 EMA Expert: Price below 50 EMA Macro Trend (Sell)")
 
-        # 4. MEAN REVERSION RSI (Fixes the trap)
-        if 40 < rsi.iloc[-1] < 75: votes += 1; council_logic.append("🟢 RSI Expert: Momentum is rising safely [Not overbought] (Buy)")
+        if 40 < rsi.iloc[-1] < 75: votes += 1; council_logic.append("🟢 RSI Expert: Momentum is rising safely (Buy)")
         elif rsi.iloc[-1] >= 75: council_logic.append("🔴 RSI Expert: DANGER! Asset is Overbought > 75 (Sell)")
         else: council_logic.append("🔴 RSI Expert: Momentum is completely dead < 40 (Sell)")
 
-        # 5. MACD
         if macd.iloc[-1] > macd_signal.iloc[-1]: votes += 1; council_logic.append("🟢 MACD Expert: Bullish Crossover Maintained (Buy)")
         else: council_logic.append("🔴 MACD Expert: Bearish Crossover (Sell)")
 
-        # 6. VWAP INSTITUTIONAL
         if c_close > vwap.iloc[-1]: votes += 1; council_logic.append("🟢 VWAP Expert: Trading above institutional daily average (Buy)")
         else: council_logic.append("🔴 VWAP Expert: Trading below institutional average (Sell)")
 
-        # 7. ON-BALANCE VOLUME (OBV)
-        if obv.iloc[-1] > obv_sma.iloc[-1]: votes += 1; council_logic.append("🟢 Volume Expert: Smart Money is Accumulating [OBV rising] (Buy)")
-        else: council_logic.append("🔴 Volume Expert: Smart Money is Distributing [OBV falling] (Sell)")
+        if obv.iloc[-1] > obv_sma.iloc[-1]: votes += 1; council_logic.append("🟢 Volume Expert: Smart Money is Accumulating (Buy)")
+        else: council_logic.append("🔴 Volume Expert: Smart Money is Distributing (Sell)")
 
-        # 8. STOCHASTIC
         if 20 < stoch_k.iloc[-1] < 80: votes += 1; council_logic.append("🟢 Stochastic Expert: Room to grow safely (Buy)")
         else: council_logic.append("🔴 Stochastic Expert: Extreme Zone/Dangerous (Sell)")
 
-        # 9. VOLATILITY EXPANSION (ATR)
         if c_close > sma20.iloc[-1] and current_range > atr.iloc[-1]: votes += 1; council_logic.append("🟢 Volatility Expert: Breakout with Expanding Range (Buy)")
         else: council_logic.append("🔴 Volatility Expert: Price Action is Choppy or Contracting (Sell)")
 
-        # 10. GOLDEN CROSS TREND
         if sma20.iloc[-1] > ema50.iloc[-1]: votes += 1; council_logic.append("🟢 Cross Expert: Short trend is beating Long trend (Buy)")
         else: council_logic.append("🔴 Cross Expert: Short trend is failing (Sell)")
 
@@ -470,14 +460,14 @@ elif app_mode == "💯 100% PROFIT":
 
 
 # ==========================================
-# PAGE 3: 200 MEMBER COUNCIL (DIVERSIFIED 100)
+# PAGE 3: 200 MEMBER COUNCIL (ALL 100 INDICATORS)
 # ==========================================
 elif app_mode == "🏛️ 200 MEMBER COUNCIL":
-    st.title("🏛️ The Grand Council of 200 (Diversified)")
+    st.title("🏛️ The Grand Council of 200 (100 Indicators)")
     st.markdown("---")
     
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
-    st.info("Live calculating 100 DIVERSIFIED indicators across 5 Market Pillars (Trend, Momentum, Volatility, Volume, Price Action). Eliminates the '100 Indicator Illusion'.")
+    st.info("Live calculating EXACTLY 100 unique indicators. 10 Categories × 10 Time Periods. Total 200 Members (100 Buy / 100 Sell).")
 
     timeframes = ['1min', '2min', '3min', '5min', '10min', '15min', '30min']
     display_tf = ['1m', '2m', '3m', '5m', '10m', '15m', '30m']
@@ -491,7 +481,7 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
             base_1m_data = pd.DataFrame()
 
     if not base_1m_data.empty:
-        st.markdown("### ⏱️ Multi-Timeframe Matrix (Members Voting)")
+        st.markdown("### ⏱️ Multi-Timeframe Matrix (Exact Votes out of 100)")
         tf_cols = st.columns(len(timeframes))
         
         detailed_buy_list = []
@@ -504,7 +494,7 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                         'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
                     }).dropna()
                     
-                    if len(df) > 50:
+                    if len(df) > 10:
                         close = df['Close']
                         high = df['High']
                         low = df['Low']
@@ -513,73 +503,84 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                         buy_inds = []
                         sell_inds = []
                         
-                        # --- THE DIVERSIFIED 100 INDICATOR ENGINE ---
-                        periods_micro = [3, 5, 8]             # Scalper
-                        periods_short = [10, 15, 20]          # Day trader
-                        periods_macro = [50, 100, 200]        # Big money
-                        all_periods = periods_micro + periods_short + [50] # Mix
+                        # 10 Different Periods to generate exactly 100 indicators
+                        periods_10 = [3, 5, 8, 10, 15, 20, 30, 40, 50, 100]
                         
-                        # 1. TREND (Raw Direction)
-                        for p in all_periods:
+                        # 1. SMA (10 Indicators)
+                        for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean()
-                            if close.iloc[-1] > sma.iloc[-1]: buy_inds.append(f"Trend: Above SMA({p})")
-                            else: sell_inds.append(f"Trend: Below SMA({p})")
-                            
-                            ema = close.ewm(span=p, adjust=False, min_periods=1).mean()
-                            if close.iloc[-1] > ema.iloc[-1]: buy_inds.append(f"Trend: Above EMA({p})")
-                            else: sell_inds.append(f"Trend: Below EMA({p})")
+                            if close.iloc[-1] > sma.iloc[-1]: buy_inds.append(f"SMA Breakout ({p})")
+                            else: sell_inds.append(f"SMA Breakdown ({p})")
 
-                        # 2. MOMENTUM (Speed & Exhaustion - MEAN REVERSION)
+                        # 2. EMA (10 Indicators)
+                        for p in periods_10:
+                            ema = close.ewm(span=p, adjust=False, min_periods=1).mean()
+                            if close.iloc[-1] > ema.iloc[-1]: buy_inds.append(f"EMA Trend ({p})")
+                            else: sell_inds.append(f"EMA Trend Drop ({p})")
+
+                        # 3. MACD Crosses (10 Indicators)
+                        for p in periods_10:
+                            fast = close.ewm(span=p, adjust=False, min_periods=1).mean()
+                            slow = close.ewm(span=p*2, adjust=False, min_periods=1).mean()
+                            if fast.iloc[-1] > slow.iloc[-1]: buy_inds.append(f"MACD Bull Cross ({p}/{p*2})")
+                            else: sell_inds.append(f"MACD Bear Cross ({p}/{p*2})")
+
+                        # 4. RSI Levels (10 Indicators)
                         delta = close.diff()
                         gain = delta.where(delta > 0, 0)
                         loss = -delta.where(delta < 0, 0)
-                        for p in all_periods:
+                        for p in periods_10:
                             rs = gain.rolling(window=p, min_periods=1).mean() / (loss.rolling(window=p, min_periods=1).mean() + 1e-9)
                             rsi = 100 - (100 / (1 + rs))
-                            if 40 < rsi.iloc[-1] < 75: buy_inds.append(f"Momentum: Healthy RSI({p})")
-                            else: sell_inds.append(f"Momentum: Exhausted/Weak RSI({p})")
-                            
-                            roc = ((close - close.shift(p)) / (close.shift(p) + 1e-9)) * 100
-                            if roc.iloc[-1] > 0: buy_inds.append(f"Momentum: ROC Positive({p})")
-                            else: sell_inds.append(f"Momentum: ROC Negative({p})")
+                            if 40 < rsi.iloc[-1] < 75: buy_inds.append(f"RSI Healthy ({p})")
+                            else: sell_inds.append(f"RSI Overbought/Dead ({p})")
 
-                        # 3. VOLATILITY (Breakouts & Squeezes)
-                        for p in all_periods:
-                            atr = (high - low).rolling(window=p, min_periods=1).mean()
-                            current_range = high.iloc[-1] - low.iloc[-1]
+                        # 5. Stochastic Oscillator (10 Indicators)
+                        for p in periods_10:
+                            stoch_ll = low.rolling(window=p, min_periods=1).min()
+                            stoch_hh = high.rolling(window=p, min_periods=1).max()
+                            stoch = 100 * ((close - stoch_ll) / (stoch_hh - stoch_ll + 1e-9))
+                            if 20 < stoch.iloc[-1] < 80: buy_inds.append(f"Stoch Active ({p})")
+                            else: sell_inds.append(f"Stoch Exhausted/Risk ({p})")
+
+                        # 6. Rate of Change / Momentum (10 Indicators)
+                        for p in periods_10:
+                            roc = ((close - close.shift(p).fillna(method='bfill')) / (close.shift(p).fillna(method='bfill') + 1e-9)) * 100
+                            if roc.iloc[-1] > 0: buy_inds.append(f"ROC Positive ({p})")
+                            else: sell_inds.append(f"ROC Negative ({p})")
+
+                        # 7. Bollinger Bands (10 Indicators)
+                        for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean()
-                            std = close.rolling(window=p, min_periods=1).std()
-                            upper_band = sma + (std * 2)
-                            
-                            if close.iloc[-1] > sma.iloc[-1] and current_range > atr.iloc[-1]: 
-                                buy_inds.append(f"Volatility: Expanding Breakout({p})")
-                            elif close.iloc[-1] < sma.iloc[-1] or close.iloc[-1] > upper_band.iloc[-1]: 
-                                sell_inds.append(f"Volatility: Bearish/Extended({p})")
-                            else:
-                                sell_inds.append(f"Volatility: Choppy/Flat({p})")
+                            std = close.rolling(window=p, min_periods=1).std().fillna(0)
+                            upper = sma + (std * 2)
+                            if close.iloc[-1] > sma.iloc[-1] and close.iloc[-1] < upper.iloc[-1]: 
+                                buy_inds.append(f"Bollinger Push ({p})")
+                            else: 
+                                sell_inds.append(f"Bollinger Drag/Exhaustion ({p})")
 
-                        # 4. VOLUME & ORDER FLOW (The absolute truth)
+                        # 8. Donchian / Price Channels (10 Indicators)
+                        for p in periods_10:
+                            hh = high.rolling(window=p, min_periods=1).max()
+                            ll = low.rolling(window=p, min_periods=1).min()
+                            mid = (hh + ll) / 2
+                            if close.iloc[-1] > mid.iloc[-1]: buy_inds.append(f"Donchian Bull ({p})")
+                            else: sell_inds.append(f"Donchian Bear ({p})")
+
+                        # 9. OBV / Volume Trend (10 Indicators)
                         obv = (np.sign(close.diff()) * vol).fillna(0).cumsum()
-                        for p in all_periods:
+                        for p in periods_10:
                             obv_sma = obv.rolling(window=p, min_periods=1).mean()
-                            if obv.iloc[-1] > obv_sma.iloc[-1]: buy_inds.append(f"Volume: Smart Money In({p})")
-                            else: sell_inds.append(f"Volume: Smart Money Out({p})")
+                            if obv.iloc[-1] > obv_sma.iloc[-1]: buy_inds.append(f"OBV Inflow ({p})")
+                            else: sell_inds.append(f"OBV Outflow ({p})")
 
+                        # 10. VWAP / Flow (10 Indicators)
                         typ_price = (high + low + close) / 3
-                        for p in all_periods:
+                        for p in periods_10:
                             vp = typ_price * vol
                             vwap_p = vp.rolling(window=p, min_periods=1).sum() / (vol.rolling(window=p, min_periods=1).sum() + 1e-9)
-                            if close.iloc[-1] > vwap_p.iloc[-1]: buy_inds.append(f"Volume: Above VWAP({p})")
-                            else: sell_inds.append(f"Volume: Below VWAP({p})")
-
-                        # 5. PURE CANDLESTICK PRICE ACTION (No Lag)
-                        if close.iloc[-1] > (high.iloc[-1] - ((high.iloc[-1] - low.iloc[-1]) * 0.2)):
-                            buy_inds.append("Price Action: Strong Bullish Wick Rejection")
-                        else: sell_inds.append("Price Action: Weak Closing Price")
-
-                        if len(close) > 2 and close.iloc[-1] > df['Open'].iloc[-2] and close.iloc[-2] < df['Open'].iloc[-2]:
-                            buy_inds.append("Price Action: Bullish Engulfing Pattern")
-                        else: sell_inds.append("Price Action: No Engulfing Strength")
+                            if close.iloc[-1] > vwap_p.iloc[-1]: buy_inds.append(f"VWAP Bull ({p})")
+                            else: sell_inds.append(f"VWAP Bear ({p})")
                         
                         if tf == '1min':
                             detailed_buy_list = buy_inds
@@ -608,7 +609,7 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                     st.error("Error")
         
         st.markdown("---")
-        st.markdown("### ⚖️ Diversified Pillar Breakdown (1-Minute Engine)")
+        st.markdown("### ⚖️ The 100 Indicator Breakdown (1-Minute Engine)")
         
         col_buy_side, col_sell_side = st.columns(2)
         
@@ -640,14 +641,14 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
         st.error("Market Data Unavailable right now. Trying to re-connect...")
 
 # ==========================================
-# PAGE 4: THE FUTURE (PREDICTIVE HORIZON)
+# PAGE 4: THE FUTURE (ALL 100 INDICATORS)
 # ==========================================
 elif app_mode == "🔮 THE FUTURE":
-    st.title("🔮 The Future: Predictive Horizon")
+    st.title("🔮 The Future: 100-Point Predictive Horizon")
     st.markdown("---")
     
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
-    st.info("Forward-looking probabilities using 5-Pillar Market Flow analysis across 8 timeframes.")
+    st.info("Calculating 100 Forward-looking probabilities across 8 timeframes.")
 
     timeframes = ['1min', '2min', '3min', '5min', '10min', '15min', '30min', '60min']
     display_tf = ['1m', '2m', '3m', '5m', '10m', '15m', '30m', '60m']
@@ -661,7 +662,7 @@ elif app_mode == "🔮 THE FUTURE":
             base_1m_data = pd.DataFrame()
 
     if not base_1m_data.empty:
-        st.markdown("### 📈 Probability of Next Candle Trend")
+        st.markdown("### 📈 Probability of Next Candle Trend (Out of 100)")
         tf_cols = st.columns(len(timeframes))
         
         detailed_bull_future = []
@@ -683,44 +684,84 @@ elif app_mode == "🔮 THE FUTURE":
                         bull_momentum = []
                         bear_pressure = []
                         
-                        periods_all = [5, 10, 15, 20, 50]
+                        periods_10 = [3, 5, 8, 10, 15, 20, 30, 40, 50, 100]
                         
-                        # Apply Diversified rules for Future Prediction
-                        for p in periods_all:
+                        # 1. SMA (10)
+                        for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean()
-                            if close.iloc[-1] > sma.iloc[-1]: bull_momentum.append(f"Future Trend Base ({p})")
-                            else: bear_pressure.append(f"Future Trend Drop ({p})")
-                            
+                            if close.iloc[-1] > sma.iloc[-1]: bull_momentum.append(f"Future SMA Bias ({p})")
+                            else: bear_pressure.append(f"Future SMA Drop ({p})")
+
+                        # 2. EMA (10)
+                        for p in periods_10:
+                            ema = close.ewm(span=p, adjust=False, min_periods=1).mean()
+                            if close.iloc[-1] > ema.iloc[-1]: bull_momentum.append(f"Future EMA Bias ({p})")
+                            else: bear_pressure.append(f"Future EMA Drop ({p})")
+
+                        # 3. MACD (10)
+                        for p in periods_10:
+                            fast = close.ewm(span=p, adjust=False, min_periods=1).mean()
+                            slow = close.ewm(span=p*2, adjust=False, min_periods=1).mean()
+                            if fast.iloc[-1] > slow.iloc[-1]: bull_momentum.append(f"Future MACD Push ({p}/{p*2})")
+                            else: bear_pressure.append(f"Future MACD Pull ({p}/{p*2})")
+
+                        # 4. RSI (10)
                         delta = close.diff()
                         gain = delta.where(delta > 0, 0)
                         loss = -delta.where(delta < 0, 0)
-                        for p in periods_all:
+                        for p in periods_10:
                             rs = gain.rolling(window=p, min_periods=1).mean() / (loss.rolling(window=p, min_periods=1).mean() + 1e-9)
                             rsi = 100 - (100 / (1 + rs))
-                            if 40 < rsi.iloc[-1] < 75: bull_momentum.append(f"Future Momentum Room ({p})")
-                            else: bear_pressure.append(f"Future Momentum Exhaustion ({p})")
-                            
-                        for p in periods_all:
-                            atr = (high - low).rolling(window=p, min_periods=1).mean()
-                            current_range = high.iloc[-1] - low.iloc[-1]
+                            if 40 < rsi.iloc[-1] < 75: bull_momentum.append(f"Future RSI Velocity ({p})")
+                            else: bear_pressure.append(f"Future RSI Exhaustion ({p})")
+
+                        # 5. Stochastic (10)
+                        for p in periods_10:
+                            stoch_ll = low.rolling(window=p, min_periods=1).min()
+                            stoch_hh = high.rolling(window=p, min_periods=1).max()
+                            stoch = 100 * ((close - stoch_ll) / (stoch_hh - stoch_ll + 1e-9))
+                            if 20 < stoch.iloc[-1] < 80: bull_momentum.append(f"Future Stoch Arc ({p})")
+                            else: bear_pressure.append(f"Future Stoch Danger ({p})")
+
+                        # 6. ROC (10)
+                        for p in periods_10:
+                            roc = ((close - close.shift(p).fillna(method='bfill')) / (close.shift(p).fillna(method='bfill') + 1e-9)) * 100
+                            if roc.iloc[-1] > 0: bull_momentum.append(f"Future ROC Push ({p})")
+                            else: bear_pressure.append(f"Future ROC Pull ({p})")
+
+                        # 7. Bollinger (10)
+                        for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean()
-                            if close.iloc[-1] > sma.iloc[-1] and current_range > atr.iloc[-1]: 
-                                bull_momentum.append(f"Future Volatility Burst ({p})")
-                            else: bear_pressure.append(f"Future Volatility Decay ({p})")
-                            
+                            std = close.rolling(window=p, min_periods=1).std().fillna(0)
+                            upper = sma + (std * 2)
+                            if close.iloc[-1] > sma.iloc[-1] and close.iloc[-1] < upper.iloc[-1]: 
+                                bull_momentum.append(f"Future Bollinger Launch ({p})")
+                            else: 
+                                bear_pressure.append(f"Future Bollinger Wall ({p})")
+
+                        # 8. Donchian (10)
+                        for p in periods_10:
+                            hh = high.rolling(window=p, min_periods=1).max()
+                            ll = low.rolling(window=p, min_periods=1).min()
+                            mid = (hh + ll) / 2
+                            if close.iloc[-1] > mid.iloc[-1]: bull_momentum.append(f"Future Channel Support ({p})")
+                            else: bear_pressure.append(f"Future Channel Resistance ({p})")
+
+                        # 9. OBV (10)
                         obv = (np.sign(close.diff()) * vol).fillna(0).cumsum()
-                        for p in periods_all:
+                        for p in periods_10:
                             obv_sma = obv.rolling(window=p, min_periods=1).mean()
-                            if obv.iloc[-1] > obv_sma.iloc[-1]: bull_momentum.append(f"Future Smart Money In ({p})")
-                            else: bear_pressure.append(f"Future Smart Money Out ({p})")
-                            
+                            if obv.iloc[-1] > obv_sma.iloc[-1]: bull_momentum.append(f"Future Volume Growth ({p})")
+                            else: bear_pressure.append(f"Future Volume Decay ({p})")
+
+                        # 10. VWAP (10)
                         typ_price = (high + low + close) / 3
-                        for p in periods_all:
+                        for p in periods_10:
                             vp = typ_price * vol
                             vwap_p = vp.rolling(window=p, min_periods=1).sum() / (vol.rolling(window=p, min_periods=1).sum() + 1e-9)
-                            if close.iloc[-1] > vwap_p.iloc[-1]: bull_momentum.append(f"Future Institutional Push ({p})")
-                            else: bear_pressure.append(f"Future Institutional Pull ({p})")
-                        
+                            if close.iloc[-1] > vwap_p.iloc[-1]: bull_momentum.append(f"Future Inst. Flow Up ({p})")
+                            else: bear_pressure.append(f"Future Inst. Flow Down ({p})")
+
                         if tf == '5min':
                             detailed_bull_future = bull_momentum
                             detailed_bear_future = bear_pressure
@@ -751,15 +792,15 @@ elif app_mode == "🔮 THE FUTURE":
                     st.error("Error")
         
         st.markdown("---")
-        st.markdown("### ⚖️ The Future Horizon Breakdown (5-Minute Engine)")
+        st.markdown("### ⚖️ The 100-Point Future Horizon (5-Minute Engine)")
         
         col_bull_side, col_bear_side = st.columns(2)
         
         with col_bull_side:
             st.markdown(f'''
             <div style="background-color:rgba(0, 200, 83, 0.1); border: 2px solid #00C853; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #00C853; margin:0;">📈 BULLISH MOMENTUM</h2>
-                <h1 style="color: #00C853; margin:0; font-size: 50px;">{len(detailed_bull_future)} <span style="font-size:20px;">Points</span></h1>
+                <h2 style="color: #00C853; margin:0;">📈 BULLISH PROBABILITY</h2>
+                <h1 style="color: #00C853; margin:0; font-size: 50px;">{len(detailed_bull_future)}%</h1>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -770,8 +811,8 @@ elif app_mode == "🔮 THE FUTURE":
         with col_bear_side:
             st.markdown(f'''
             <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #FF5252; margin:0;">📉 BEARISH PRESSURE</h2>
-                <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)} <span style="font-size:20px;">Points</span></h1>
+                <h2 style="color: #FF5252; margin:0;">📉 BEARISH PROBABILITY</h2>
+                <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)}%</h1>
             </div>
             ''', unsafe_allow_html=True)
             
