@@ -39,7 +39,7 @@ def save_wallet():
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
-app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE"])
+app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI OPINION"])
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -497,40 +497,34 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                         buy_inds = []
                         sell_inds = []
                         
-                        # UPDATED: Scaled down periods so it never crashes on limited timeframe data
                         periods_10 = [3, 5, 7, 9, 12, 15, 20, 25, 30, 35]
                         
-                        # 1. SMA (10 Indicators)
                         for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean().fillna(0)
                             if close.iloc[-1] > sma.iloc[-1]: buy_inds.append(f"SMA Breakout ({p})")
                             else: sell_inds.append(f"SMA Breakdown ({p})")
 
-                        # 2. EMA (10 Indicators)
                         for p in periods_10:
                             ema = close.ewm(span=p, adjust=False, min_periods=1).mean().fillna(0)
                             if close.iloc[-1] > ema.iloc[-1]: buy_inds.append(f"EMA Trend ({p})")
                             else: sell_inds.append(f"EMA Trend Drop ({p})")
 
-                        # 3. MACD Crosses (10 Indicators)
                         for p in periods_10:
                             fast = close.ewm(span=p, adjust=False, min_periods=1).mean().fillna(0)
                             slow = close.ewm(span=p*2, adjust=False, min_periods=1).mean().fillna(0)
                             if fast.iloc[-1] > slow.iloc[-1]: buy_inds.append(f"MACD Bull Cross ({p}/{p*2})")
                             else: sell_inds.append(f"MACD Bear Cross ({p}/{p*2})")
 
-                        # 4. RSI Levels (10 Indicators)
                         delta = close.diff().fillna(0)
                         gain = delta.where(delta > 0, 0)
                         loss = -delta.where(delta < 0, 0)
                         for p in periods_10:
                             rs = gain.rolling(window=p, min_periods=1).mean() / (loss.rolling(window=p, min_periods=1).mean() + 1e-9)
                             rsi = 100 - (100 / (1 + rs))
-                            rsi = rsi.fillna(50) # Prevents crashes
+                            rsi = rsi.fillna(50)
                             if 40 < rsi.iloc[-1] < 75: buy_inds.append(f"RSI Healthy ({p})")
                             else: sell_inds.append(f"RSI Overbought/Dead ({p})")
 
-                        # 5. Stochastic Oscillator (10 Indicators)
                         for p in periods_10:
                             stoch_ll = low.rolling(window=p, min_periods=1).min().fillna(0)
                             stoch_hh = high.rolling(window=p, min_periods=1).max().fillna(0)
@@ -539,7 +533,6 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                             if 20 < stoch.iloc[-1] < 80: buy_inds.append(f"Stoch Active ({p})")
                             else: sell_inds.append(f"Stoch Exhausted/Risk ({p})")
 
-                        # 6. Rate of Change / Momentum (10 Indicators)
                         for p in periods_10:
                             shifted = close.shift(p)
                             roc = ((close - shifted) / (shifted + 1e-9)) * 100
@@ -547,7 +540,6 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                             if roc.iloc[-1] > 0: buy_inds.append(f"ROC Positive ({p})")
                             else: sell_inds.append(f"ROC Negative ({p})")
 
-                        # 7. Bollinger Bands (10 Indicators)
                         for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean().fillna(0)
                             std = close.rolling(window=p, min_periods=1).std().fillna(0)
@@ -557,7 +549,6 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                             else: 
                                 sell_inds.append(f"Bollinger Drag/Exhaustion ({p})")
 
-                        # 8. Donchian / Price Channels (10 Indicators)
                         for p in periods_10:
                             hh = high.rolling(window=p, min_periods=1).max().fillna(0)
                             ll = low.rolling(window=p, min_periods=1).min().fillna(0)
@@ -565,14 +556,12 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
                             if close.iloc[-1] > mid.iloc[-1]: buy_inds.append(f"Donchian Bull ({p})")
                             else: sell_inds.append(f"Donchian Bear ({p})")
 
-                        # 9. OBV / Volume Trend (10 Indicators)
                         obv = (np.sign(close.diff().fillna(0)) * vol).fillna(0).cumsum()
                         for p in periods_10:
                             obv_sma = obv.rolling(window=p, min_periods=1).mean().fillna(0)
                             if obv.iloc[-1] > obv_sma.iloc[-1]: buy_inds.append(f"OBV Inflow ({p})")
                             else: sell_inds.append(f"OBV Outflow ({p})")
 
-                        # 10. VWAP / Flow (10 Indicators)
                         typ_price = (high + low + close) / 3
                         for p in periods_10:
                             vp = typ_price * vol
@@ -685,26 +674,22 @@ elif app_mode == "🔮 THE FUTURE":
                         
                         periods_10 = [3, 5, 7, 9, 12, 15, 20, 25, 30, 35]
                         
-                        # 1. SMA (10)
                         for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean().fillna(0)
                             if close.iloc[-1] > sma.iloc[-1]: bull_momentum.append(f"Future SMA Bias ({p})")
                             else: bear_pressure.append(f"Future SMA Drop ({p})")
 
-                        # 2. EMA (10)
                         for p in periods_10:
                             ema = close.ewm(span=p, adjust=False, min_periods=1).mean().fillna(0)
                             if close.iloc[-1] > ema.iloc[-1]: bull_momentum.append(f"Future EMA Bias ({p})")
                             else: bear_pressure.append(f"Future EMA Drop ({p})")
 
-                        # 3. MACD (10)
                         for p in periods_10:
                             fast = close.ewm(span=p, adjust=False, min_periods=1).mean().fillna(0)
                             slow = close.ewm(span=p*2, adjust=False, min_periods=1).mean().fillna(0)
                             if fast.iloc[-1] > slow.iloc[-1]: bull_momentum.append(f"Future MACD Push ({p}/{p*2})")
                             else: bear_pressure.append(f"Future MACD Pull ({p}/{p*2})")
 
-                        # 4. RSI (10)
                         delta = close.diff().fillna(0)
                         gain = delta.where(delta > 0, 0)
                         loss = -delta.where(delta < 0, 0)
@@ -715,7 +700,6 @@ elif app_mode == "🔮 THE FUTURE":
                             if 40 < rsi.iloc[-1] < 75: bull_momentum.append(f"Future RSI Velocity ({p})")
                             else: bear_pressure.append(f"Future RSI Exhaustion ({p})")
 
-                        # 5. Stochastic (10)
                         for p in periods_10:
                             stoch_ll = low.rolling(window=p, min_periods=1).min().fillna(0)
                             stoch_hh = high.rolling(window=p, min_periods=1).max().fillna(0)
@@ -724,7 +708,6 @@ elif app_mode == "🔮 THE FUTURE":
                             if 20 < stoch.iloc[-1] < 80: bull_momentum.append(f"Future Stoch Arc ({p})")
                             else: bear_pressure.append(f"Future Stoch Danger ({p})")
 
-                        # 6. ROC (10)
                         for p in periods_10:
                             shifted = close.shift(p)
                             roc = ((close - shifted) / (shifted + 1e-9)) * 100
@@ -732,7 +715,6 @@ elif app_mode == "🔮 THE FUTURE":
                             if roc.iloc[-1] > 0: bull_momentum.append(f"Future ROC Push ({p})")
                             else: bear_pressure.append(f"Future ROC Pull ({p})")
 
-                        # 7. Bollinger (10)
                         for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean().fillna(0)
                             std = close.rolling(window=p, min_periods=1).std().fillna(0)
@@ -742,7 +724,6 @@ elif app_mode == "🔮 THE FUTURE":
                             else: 
                                 bear_pressure.append(f"Future Bollinger Wall ({p})")
 
-                        # 8. Donchian (10)
                         for p in periods_10:
                             hh = high.rolling(window=p, min_periods=1).max().fillna(0)
                             ll = low.rolling(window=p, min_periods=1).min().fillna(0)
@@ -750,14 +731,12 @@ elif app_mode == "🔮 THE FUTURE":
                             if close.iloc[-1] > mid.iloc[-1]: bull_momentum.append(f"Future Channel Support ({p})")
                             else: bear_pressure.append(f"Future Channel Resistance ({p})")
 
-                        # 9. OBV (10)
                         obv = (np.sign(close.diff().fillna(0)) * vol).fillna(0).cumsum()
                         for p in periods_10:
                             obv_sma = obv.rolling(window=p, min_periods=1).mean().fillna(0)
                             if obv.iloc[-1] > obv_sma.iloc[-1]: bull_momentum.append(f"Future Volume Growth ({p})")
                             else: bear_pressure.append(f"Future Volume Decay ({p})")
 
-                        # 10. VWAP (10)
                         typ_price = (high + low + close) / 3
                         for p in periods_10:
                             vp = typ_price * vol
@@ -826,6 +805,38 @@ elif app_mode == "🔮 THE FUTURE":
 
     else:
         st.error("Market Data Unavailable right now. The market may be closed or offline.")
+
+
+# ==========================================
+# PAGE 5: GEMINI OPINION (THE BLUEPRINT)
+# ==========================================
+elif app_mode == "🤖 GEMINI OPINION":
+    st.title("🤖 Gemini Opinion: The Brutal Truth & The Roadmap")
+    st.markdown("---")
+    
+    st.header("The Reality of the Intelligence Market")
+    st.write("To beat the top 1% of traders and institutional algorithms, you must separate the 'Brain' of your operation from the 'Face' of your operation. Your terminal is a beautifully designed concept car, but you are preparing for a Formula 1 race against multi-billion dollar supercomputers.")
+    
+    st.subheader("⚠️ The 4 Brutal Truths")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.error("**1. Your Data is Blind (The yfinance limit)**\n\nYahoo Finance is a free, delayed, web-scraped feed. In the live market, institutional algorithms read the order book milliseconds before the price moves. Acting on 60-second-old data is a massive liability.")
+        st.error("**2. 100 Indicators is an Illusion**\n\nMoving Averages, RSI, MACD are all derived from the exact same numbers (Open, High, Low, Close). 100 mirrors reflecting the same object don't show you the future. You need raw Order Flow.")
+    with col2:
+        st.error("**3. You Are Missing the Proof (Backtesting)**\n\nA true quantitative trader never runs a live system until they have run a 5-year Backtest. If you cannot mathematically prove your logic survives historical crashes, live trading is just gambling.")
+        st.error("**4. Architecture Bottleneck**\n\nStreamlit re-runs the entire script on every single interaction. While the code is reloading the UI, the market has already moved. A true engine runs purely in the background without a UI.")
+
+    st.markdown("---")
+    
+    st.subheader("🛠️ The Blueprint: How to Actually Beat Them")
+    
+    st.info("**1. Move from 'Pull' to 'Push' (WebSockets)**\n\nRegister for a developer account with an Indian broker API (e.g., Dhan HQ, Fyers, Zerodha Kite Connect). Open a permanent data tunnel where the exchange *pushes* live ticks directly into your Pandas DataFrame in milliseconds.")
+    
+    st.info("**2. Learn Order Flow & Level 2 Data**\n\nLook at the actual Order Book (Level 2). Calculate the Imbalance: `(Total Bids - Total Asks) / (Total Bids + Total Asks)`. If there are 500,000 shares waiting to be bought and only 50,000 to be sold, the price will jump. This is faster and more accurate than any RSI.")
+    
+    st.info("**3. Build the Backtesting Engine**\n\nUse Python libraries like `vectorbt` or `Backtrader`. Feed your 'Council of 200' logic 5 years of historical data. Let the code tell you the exact Win Rate, Max Drawdown, and Profit Factor before you risk a single Rupee.")
+    
+    st.success("**4. Decouple the Architecture (The Ultimate Fix)**\n\nSplit this project into two completely separate Python files:\n*   **`engine.py` (The Brain):** No UI. Runs invisibly via `asyncio`. Holds the WebSockets, calculates the members in microseconds, fires the API orders, and saves data to a local JSON/Redis file.\n*   **`dashboard.py` (The Face):** Your Streamlit app. It does NO math and fetches NO market data. It only reads the file updated by the engine and displays your beautiful terminal.")
 
 # ==========================================
 # LIVE ENGINE TRIGGER
