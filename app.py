@@ -13,7 +13,7 @@ import os
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
 # നിങ്ങളുടെ പുതിയ ടോക്കൺ ഇവിടെ നൽകുക
-UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA"
+UPSTOX_TOKEN = "ഇവിടെ_നിങ്ങളുടെ_ടോക്കൺ_നൽകുക"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -43,13 +43,16 @@ st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
 
-# [Fix Applied] പേജ് റീലോഡ് പ്രശ്നം പരിഹരിക്കാൻ session_state ഉപയോഗിക്കുന്നു
+# പേജ് റീലോഡ് പ്രശ്നം പരിഹരിക്കാൻ session_state ഉപയോഗിക്കുന്നു
 if 'current_page' not in st.session_state:
     st.session_state['current_page'] = "📈 Trading Terminal"
 
-selected_page = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"], index=["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"].index(st.session_state['current_page']))
+selected_page = st.sidebar.selectbox(
+    "Select Page", 
+    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"], 
+    index=["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"].index(st.session_state['current_page'])
+)
 
-# അപ്ഡേറ്റ് ചെയ്ത പേജ് സെറ്റ് ചെയ്യുന്നു
 st.session_state['current_page'] = selected_page
 app_mode = st.session_state['current_page']
 
@@ -100,7 +103,6 @@ instrument_key = current_stock_info['Upstox_Key']
 
 col1, col2 = st.sidebar.columns(2)
 with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
-# [Feature Added] നിങ്ങൾക്ക് ആവശ്യമുള്ള എല്ലാ കാൻഡിലുകളും ചേർത്തു
 with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=0)
 
 st.sidebar.markdown("---")
@@ -125,7 +127,6 @@ st.sidebar.markdown("---")
 # ==========================================
 @st.cache_data(ttl=5) 
 def load_upstox_data(inst_key, interval_choice="1m"):
-    # Upstox APIs 1m, 30m, 1d മാത്രമേ തരൂ. ബാക്കിയുള്ളവ 1m ൽ നിന്നും നമ്മൾ ഉണ്ടാക്കും (Resample).
     base_interval = "1minute"
     if interval_choice == "30m":
         base_interval = "30minute"
@@ -146,9 +147,8 @@ def load_upstox_data(inst_key, interval_choice="1m"):
             df.set_index('Timestamp', inplace=True)
             df = df.sort_index()
             
-            # [Feature Applied] 1 മിനിറ്റ് ഡാറ്റയെ 2m, 3m, 5m, 10m, 15m, 20m ആയി മാറ്റുന്നു
             if interval_choice not in ["1m", "30m", "1d"]:
-                resample_rule = interval_choice.replace('m', 'min') # ഉദാഹരണത്തിന്: 5min
+                resample_rule = interval_choice.replace('m', 'min')
                 resample_dict = {
                     'Open': 'first',
                     'High': 'max',
