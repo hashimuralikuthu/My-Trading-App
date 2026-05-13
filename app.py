@@ -12,8 +12,8 @@ import os
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
-# ഇവിടെ നിങ്ങളുടെ പുതിയ Upstox Access Token നൽകുക (ഡബിൾ കോട്ട്സ് " " നിർബന്ധം)
-UPSTOX_TOKEN = " 'access_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA', 'extended_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTAyNDU2MDB9.4kLVMXLQo-CEknzLJk89ST-8ReqzrtOfO6yxGd5XYlE'}"
+# നിങ്ങളുടെ പുതിയ ടോക്കൺ ഇവിടെ നൽകുക
+UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -42,7 +42,17 @@ def save_wallet():
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
-app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"])
+
+# [Fix Applied] പേജ് റീലോഡ് പ്രശ്നം പരിഹരിക്കാൻ session_state ഉപയോഗിക്കുന്നു
+if 'current_page' not in st.session_state:
+    st.session_state['current_page'] = "📈 Trading Terminal"
+
+selected_page = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"], index=["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"].index(st.session_state['current_page']))
+
+# അപ്ഡേറ്റ് ചെയ്ത പേജ് സെറ്റ് ചെയ്യുന്നു
+st.session_state['current_page'] = selected_page
+app_mode = st.session_state['current_page']
+
 
 # --- ADVANCED NSE TICKER & UPSTOX DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -90,7 +100,8 @@ instrument_key = current_stock_info['Upstox_Key']
 
 col1, col2 = st.sidebar.columns(2)
 with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
-with col2: time_interval = st.selectbox("Candle", ["1m", "30m", "1d"], index=0)
+# [Feature Added] നിങ്ങൾക്ക് ആവശ്യമുള്ള എല്ലാ കാൻഡിലുകളും ചേർത്തു
+with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=0)
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 App Theme")
@@ -108,15 +119,20 @@ st.sidebar.header("🤖 AI Trade Assistant")
 show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True)
 st.sidebar.markdown("---")
 
+
 # ==========================================
-# UPSTOX LIVE DATA ENGINE
+# UPSTOX LIVE DATA ENGINE WITH CUSTOM CANDLES
 # ==========================================
 @st.cache_data(ttl=5) 
 def load_upstox_data(inst_key, interval_choice="1m"):
-    interval_map = {"1m": "1minute", "30m": "30minute", "1d": "day"}
-    upstox_interval = interval_map.get(interval_choice, "1minute")
+    # Upstox APIs 1m, 30m, 1d മാത്രമേ തരൂ. ബാക്കിയുള്ളവ 1m ൽ നിന്നും നമ്മൾ ഉണ്ടാക്കും (Resample).
+    base_interval = "1minute"
+    if interval_choice == "30m":
+        base_interval = "30minute"
+    elif interval_choice == "1d":
+        base_interval = "day"
     
-    url = f'https://api.upstox.com/v2/historical-candle/intraday/{inst_key}/{upstox_interval}'
+    url = f'https://api.upstox.com/v2/historical-candle/intraday/{inst_key}/{base_interval}'
     headers = {'Accept': 'application/json', 'Authorization': f'Bearer {UPSTOX_TOKEN}'}
     
     try:
@@ -129,9 +145,21 @@ def load_upstox_data(inst_key, interval_choice="1m"):
             df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)
             df.set_index('Timestamp', inplace=True)
             df = df.sort_index()
+            
+            # [Feature Applied] 1 മിനിറ്റ് ഡാറ്റയെ 2m, 3m, 5m, 10m, 15m, 20m ആയി മാറ്റുന്നു
+            if interval_choice not in ["1m", "30m", "1d"]:
+                resample_rule = interval_choice.replace('m', 'min') # ഉദാഹരണത്തിന്: 5min
+                resample_dict = {
+                    'Open': 'first',
+                    'High': 'max',
+                    'Low': 'min',
+                    'Close': 'last',
+                    'Volume': 'sum'
+                }
+                df = df.resample(resample_rule).agg(resample_dict).dropna()
+            
             return df.tail(150) 
         else:
-            # ടോക്കൺ എക്സ്പയർ ആയാൽ സ്ക്രീനിൽ കാണിക്കാൻ
             st.sidebar.error(f"API Error (ടോക്കൺ മാറുക): {response.text}")
     except Exception as e:
         st.sidebar.error(f"System Error: {e}")
@@ -957,5 +985,6 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
 # ==========================================
 # ALWAYS LIVE ENGINE (Auto Refresh every 5 sec)
 # ==========================================
-time.sleep(5) 
-st.rerun()
+if live_mode:
+    time.sleep(5) 
+    st.rerun()
