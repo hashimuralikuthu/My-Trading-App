@@ -12,8 +12,8 @@ import os
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
-# ഇവിടെ നിങ്ങളുടെ യഥാർത്ഥ Upstox Access Token നൽകുക (ഡബിൾ കോട്ട്സ് " " നിർബന്ധം)
-UPSTOX_TOKEN = "ഇവിടെ_നിങ്ങളുടെ_ടോക്കൺ_നൽകുക"
+# ഇവിടെ നിങ്ങളുടെ പുതിയ Upstox Access Token നൽകുക (ഡബിൾ കോട്ട്സ് " " നിർബന്ധം)
+UPSTOX_TOKEN = " 'access_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0NDY0NjE1MDY2NDBmYzFmM2I0ZTYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NjY1MDMwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3MDk2MDB9.U25II7ddbLSpG1E9fHeIhFaRNTmSVYoBezY5rIXNEZA', 'extended_token': 'eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA0MDI5YTE1MDY2NDBmYzFmM2FjODQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaXNFeHRlbmRlZCI6dHJ1ZSwiaWF0IjoxNzc4NjQ3NzA2LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE4MTAyNDU2MDB9.4kLVMXLQo-CEknzLJk89ST-8ReqzrtOfO6yxGd5XYlE'}"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
@@ -106,15 +106,11 @@ show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True)
 st.sidebar.markdown("---")
 st.sidebar.header("🤖 AI Trade Assistant")
 show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True)
-
 st.sidebar.markdown("---")
-st.sidebar.header("⚡ Live Engine")
-live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 
 # ==========================================
 # UPSTOX LIVE DATA ENGINE
 # ==========================================
-# 5 സെക്കൻഡ് കാഷെ
 @st.cache_data(ttl=5) 
 def load_upstox_data(inst_key, interval_choice="1m"):
     interval_map = {"1m": "1minute", "30m": "30minute", "1d": "day"}
@@ -127,15 +123,18 @@ def load_upstox_data(inst_key, interval_choice="1m"):
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             data = response.json()['data']['candles']
+            if not data: return pd.DataFrame()
             df = pd.DataFrame(data, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume', 'OI'])
-            df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+            df['Timestamp'] = pd.to_datetime(df['Timestamp']).dt.tz_convert('Asia/Kolkata')
             df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)
             df.set_index('Timestamp', inplace=True)
             df = df.sort_index()
-            # ഗ്രാഫ് ലോഡ് വേഗത്തിലാക്കാൻ അവസാനത്തെ 150 ഡാറ്റ മാത്രം എടുക്കുന്നു
             return df.tail(150) 
+        else:
+            # ടോക്കൺ എക്സ്പയർ ആയാൽ സ്ക്രീനിൽ കാണിക്കാൻ
+            st.sidebar.error(f"API Error (ടോക്കൺ മാറുക): {response.text}")
     except Exception as e:
-        pass
+        st.sidebar.error(f"System Error: {e}")
     return pd.DataFrame()
 
 data = load_upstox_data(instrument_key, time_interval)
@@ -956,8 +955,7 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         st.error("Market Data Unavailable. Waiting for connection to the exchange...")
 
 # ==========================================
-# LIVE ENGINE TRIGGER (Safe Refresh: 5s)
+# ALWAYS LIVE ENGINE (Auto Refresh every 5 sec)
 # ==========================================
-if live_mode:
-    time.sleep(5) 
-    st.rerun()
+time.sleep(5) 
+st.rerun()
