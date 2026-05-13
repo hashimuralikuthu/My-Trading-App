@@ -9,12 +9,6 @@ import time
 import json
 import os
 
-# [Blink Fix] പേജുകൾ കൂട്ടിയിടിക്കാതിരിക്കാനുള്ള മാജിക് ട്രാക്കർ
-if 'run_id' not in st.session_state:
-    st.session_state['run_id'] = 0
-st.session_state['run_id'] += 1
-current_run_id = st.session_state['run_id']
-
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
@@ -49,9 +43,11 @@ st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
 
-app_mode = st.sidebar.selectbox(
-    "Select Page", 
-    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"]
+# [Fix Applied] ഡ്രോപ്പ്ഡൗൺ മെനുവിന് പകരം നേരിട്ട് ക്ലിക്ക് ചെയ്യാവുന്ന റേഡിയോ ബട്ടൺ നൽകി!
+app_mode = st.sidebar.radio(
+    "Select Page:", 
+    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"],
+    key="nav_menu"
 )
 
 # --- ADVANCED NSE TICKER & UPSTOX DATA FETCHING ---
@@ -92,30 +88,30 @@ for i, name in enumerate(stock_display_names):
         default_index = i
         break
 
-# --- 3. SIDEBAR SETTINGS (GLOBAL) ---
+st.sidebar.markdown("---")
 st.sidebar.header("🎯 Market Explorer")
-selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index)
+selected_display_name = st.sidebar.selectbox("Search Company Name", stock_display_names, index=default_index, key="stock_search")
 current_stock_info = stock_data[selected_display_name]
 instrument_key = current_stock_info['Upstox_Key'] 
 
 col1, col2 = st.sidebar.columns(2)
-with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0) 
-with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=3)
+with col1: time_period = st.selectbox("Period", ["Intraday Live"], index=0, key="period_sel") 
+with col2: time_interval = st.selectbox("Candle", ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "30m", "1d"], index=3, key="candle_sel")
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎨 App Theme")
-theme_choice = st.sidebar.radio("Choose Chart Theme", ["Ultra Dark", "Clean White"])
+theme_choice = st.sidebar.radio("Choose Chart Theme", ["Ultra Dark", "Clean White"], key="theme_sel")
 
 st.sidebar.markdown("---")
 st.sidebar.header("🛠️ Technical Tools")
-show_sma = st.sidebar.checkbox("20 SMA (Trend)", value=True)
-show_ema = st.sidebar.checkbox("50 EMA (Support)", value=False)
-show_rsi = st.sidebar.checkbox("RSI (Overbought/Oversold)", value=True)
-show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True) 
+show_sma = st.sidebar.checkbox("20 SMA (Trend)", value=True, key="sma_chk")
+show_ema = st.sidebar.checkbox("50 EMA (Support)", value=False, key="ema_chk")
+show_rsi = st.sidebar.checkbox("RSI (Overbought/Oversold)", value=True, key="rsi_chk")
+show_macd = st.sidebar.checkbox("MACD (Momentum)", value=True, key="macd_chk") 
 
 st.sidebar.markdown("---")
 st.sidebar.header("🤖 AI Trade Assistant")
-show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True)
+show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True, key="ai_sig_tgl")
 st.sidebar.markdown("---")
 
 
@@ -162,11 +158,12 @@ if 'portfolio' not in st.session_state: st.session_state['portfolio'] = saved_wa
 
 
 # ==========================================
-# PAGE NAVIGATION & CONTENT
+# PAGE CONTENT (BLINK FIX APPLIED)
 # ==========================================
-main_page = st.container()
+# സ്ക്രീനിൽ കാണിക്കുന്ന കാര്യങ്ങൾ ഒരു പ്രത്യേക ബോക്സിലേക്ക് മാറ്റുന്നു.
+main_container = st.empty()
 
-with main_page:
+with main_container.container():
     
     # ----------------------------------------
     # PAGE 1: TRADING TERMINAL
@@ -230,7 +227,7 @@ with main_page:
                 st.write(f"📈 **Active ({current_stock_info['Symbol']}) P&L:** ₹{local_pnl:,.2f}")
 
         st.sidebar.markdown("---")
-        trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1)
+        trade_qty = st.sidebar.number_input("Quantity", min_value=1, value=10, step=1, key="trade_qty_input")
 
         if not data.empty and current_live_price > 0:
             if pos['qty'] == 0:
@@ -973,7 +970,4 @@ with main_page:
 # ALWAYS LIVE ENGINE (Auto Refresh safely)
 # ==========================================
 time.sleep(5) 
-
-# [Blink Fix] പുതിയ പേജ് ലോഡ് ആകുമ്പോൾ പഴയതിനെ തടയുന്നു
-if st.session_state['run_id'] == current_run_id:
-    st.rerun()
+st.rerun()
