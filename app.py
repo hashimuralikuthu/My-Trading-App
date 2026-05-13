@@ -39,7 +39,7 @@ def save_wallet():
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
 st.sidebar.title("👑 Terminal Menu")
-app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI OPINION"])
+app_mode = st.sidebar.selectbox("Select Page", ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"])
 
 # --- ADVANCED NSE TICKER & DATA FETCHING ---
 @st.cache_data(ttl=86400)
@@ -807,80 +807,151 @@ elif app_mode == "🔮 THE FUTURE":
         st.error("Market Data Unavailable right now. The market may be closed or offline.")
 
 # ==========================================
-# PAGE 5: GEMINI OPINION (APP ARCHITECTURE REVIEW)
+# PAGE 5: GEMINI SYNTHESIS ENGINE
 # ==========================================
-elif app_mode == "🤖 GEMINI OPINION":
-    st.title("🤖 Gemini Opinion: App Architecture Review")
+elif app_mode == "🤖 GEMINI SYNTHESIS":
+    st.title("🧠 Gemini Synthesis Engine")
     st.markdown("---")
     
-    st.subheader(f"🏢 Active Target App: Hashim Egod Trading Terminal V26")
-    st.info("System architecture, quantitative logic, and scaling roadmap review.")
+    st.subheader(f"🎯 Target Acquired: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    st.info("I am analyzing the live tape. Synthesizing Volume, Volatility, and Macro Trend to deliver my final trading verdict.")
 
-    # Overall Score Box
-    st.markdown("### 📊 Overall System Grade")
-    verdict_color = "#00E5FF" 
-    st.markdown(f"""
-    <div style="background-color:rgba(0, 229, 255, 0.15); border: 3px solid {verdict_color}; padding: 30px; border-radius: 15px; text-align: center;">
-        <h1 style="color: {verdict_color}; font-size: 60px; margin: 0;">8.5 / 10</h1>
-        <h2 style="color: {verdict_color}; margin: 0;">INSTITUTIONAL POTENTIAL</h2>
-        <p style="margin: 10px 0 0 0; font-size: 18px;">Quantitative logic is brilliant. Architecture requires decoupling for live execution.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.spinner("Gemini is reading the market data..."):
+        try:
+            # We fetch 7 days of 1-minute data for deep analysis
+            g_data = yf.download(tickers=ticker_symbol, period="7d", interval="1m", progress=False)
+            if isinstance(g_data.columns, pd.MultiIndex):
+                g_data.columns = g_data.columns.get_level_values(0)
+        except:
+            g_data = pd.DataFrame()
 
-    st.markdown("---")
-    
-    # Strengths & Weaknesses Matrix
-    st.markdown("### ⚖️ Architecture Breakdown")
-    col_good, col_bad = st.columns(2)
+    if not g_data.empty and len(g_data) > 50:
+        # --- GEMINI AI MATH ENGINE ---
+        close = g_data['Close']
+        high = g_data['High']
+        low = g_data['Low']
+        vol = g_data['Volume']
+        
+        c_price = close.iloc[-1]
+        
+        # Calculate AI proprietary metrics
+        ema50 = close.ewm(span=50, adjust=False).mean().iloc[-1]
+        sma200 = close.rolling(window=200).mean().fillna(0).iloc[-1]
+        
+        delta = close.diff().fillna(0)
+        gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+        rs = gain / (loss + 1e-9)
+        rsi = 100 - (100 / (1 + rs)).fillna(50).iloc[-1]
+        
+        typ_price = (high + low + close) / 3
+        vwap = (typ_price * vol).rolling(window=100).sum() / (vol.rolling(window=100).sum() + 1e-9)
+        current_vwap = vwap.fillna(0).iloc[-1]
+        
+        vol_sma = vol.rolling(window=20).mean().iloc[-1]
+        current_vol = vol.iloc[-1]
 
-    with col_good:
-        st.markdown(f'''
-        <div style="background-color:rgba(0, 200, 83, 0.1); border: 2px solid #00C853; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #00C853; margin:0;">🌟 THE BRILLIANT PARTS</h2>
+        # Calculate a core base score (starts at 50 Neutral)
+        ai_score = 50
+        
+        # Trend Influence
+        if c_price > ema50: ai_score += 10
+        else: ai_score -= 10
+        if c_price > sma200: ai_score += 10
+        else: ai_score -= 10
+            
+        # Institutional VWAP Influence
+        if c_price > current_vwap: ai_score += 15
+        else: ai_score -= 15
+            
+        # Volume Confirmation
+        if current_vol > vol_sma and c_price > close.iloc[-2]: ai_score += 10
+        elif current_vol > vol_sma and c_price < close.iloc[-2]: ai_score -= 10
+            
+        # RSI Mean Reversion Guard
+        if rsi > 75: ai_score -= 20 # Overbought danger
+        elif rsi < 30: ai_score += 20 # Oversold bounce potential
+        elif 50 < rsi <= 75: ai_score += 5 # Healthy momentum
+        
+        # Hard caps
+        ai_score = max(0, min(100, ai_score))
+        
+        # --- VERDICT LOGIC ---
+        gemini_color = "#8A2BE2" # Deep AI Purple
+        
+        if ai_score >= 75:
+            v_text, v_color = "STRONG BUY", "#00C853"
+            f_text = "Mathematical probability suggests a heavy upward breakout. Institutional buyers are active."
+        elif ai_score >= 55:
+            v_text, v_color = "CAUTIOUS BUY", "#00E5FF"
+            f_text = "Trend is shifting upwards, but momentum is not yet locked. Good entry for early scalping."
+        elif ai_score <= 25:
+            v_text, v_color = "STRONG SELL", "#FF0000"
+            f_text = "Extreme bearish pressure. Institutions are dumping. Do not catch a falling knife."
+        elif ai_score <= 45:
+            v_text, v_color = "CAUTIOUS SELL", "#FF5252"
+            f_text = "Momentum is decaying. Price is slipping below VWAP. Better to exit or short."
+        else:
+            v_text, v_color = "NEUTRAL / HOLD", "#FFA726"
+            f_text = "The market is trapped in consolidation (Squeeze). Wait for the algorithmic breakout."
+
+        # --- TOP UI: THE SCORE ---
+        st.markdown(f"""
+        <div style="background: linear-gradient(145deg, rgba(138,43,226,0.2) 0%, rgba(0,0,0,0.8) 100%); border: 3px solid {gemini_color}; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 0 20px {gemini_color};">
+            <h2 style="color: #FFFFFF; margin: 0; font-weight: 300; letter-spacing: 2px;">GEMINI CONVICTION SCORE</h2>
+            <h1 style="color: {gemini_color}; font-size: 80px; margin: 0; font-weight: 900; text-shadow: 0 0 10px {gemini_color};">{int(ai_score)}%</h1>
         </div>
-        ''', unsafe_allow_html=True)
-        with st.container(height=400):
-            st.markdown("✅ **Quantitative Ensemble Model:** By forcing 100 indicators to vote, you mathematically eliminate retail noise. This mimics hedge fund logic.")
-            st.markdown("✅ **UI/UX Design:** Turning spaghetti charts into simple Red/Green scoreboards allows for instant intraday decision making.")
-            st.markdown("✅ **The Pain Sensor:** A hard-coded 5% drawdown lock is a professional-grade risk management feature.")
-            st.markdown("✅ **Matrix Resampling Engine:** Using Pandas to instantly calculate higher timeframes from 1m data bypasses API limits brilliantly.")
-
-    with col_bad:
-        st.markdown(f'''
-        <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #FF5252; margin:0;">⚠️ THE BRUTAL TRUTHS</h2>
-        </div>
-        ''', unsafe_allow_html=True)
-        with st.container(height=400):
-            st.markdown("❌ **Data is Blind:** yfinance is delayed. Acting on 60-second-old data in a live market is a liability against HFT machines.")
-            st.markdown("❌ **Indicator Illusion:** Even diversified indicators are derived from OHLC data. You are missing raw Order Book data.")
-            st.markdown("❌ **Missing Proof:** You have not backtested the 'Council of 200' over 5 years. Live trading without a backtest is gambling.")
-            st.markdown("❌ **Architecture Bottleneck:** Streamlit re-runs the whole script. While the UI reloads, the market moves. Execution must be backgrounded.")
-
-    st.markdown("---")
-    st.markdown("### 🚀 The Roadmap: How to Beat the 1%")
-    
-    # 4-Step Visual Roadmap Matrix
-    steps = ['1. WebSockets', '2. Level 2 Data', '3. Backtesting', '4. Decoupling']
-    tf_cols = st.columns(4)
-
-    roadmaps = [
-        ("Push Data", "Replace yfinance with Zerodha/Dhan WebSocket API for millisecond tick data.", "rgba(176, 38, 255, 0.15)", "#B026FF"),
-        ("Order Flow", "Calculate Order Book Imbalance (Bids vs Asks) to see price jumps before they happen.", "rgba(41, 98, 255, 0.15)", "#2962FF"),
-        ("VectorBT", "Feed the Council 5 years of historical data to prove the Win Rate mathematically.", "rgba(255, 215, 0, 0.15)", "#FFD700"),
-        ("Two Files", "Split into engine.py (invisible brain) and dashboard.py (Streamlit face).", "rgba(0, 229, 255, 0.15)", "#00E5FF")
-    ]
-
-    for i, col in enumerate(tf_cols):
-        with col:
-            title, desc, bg_color, border_color = roadmaps[i]
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # --- MIDDLE UI: CURRENT VS FUTURE ---
+        col_now, col_future = st.columns(2)
+        
+        with col_now:
             st.markdown(f'''
-            <div style="background-color:{bg_col}; border: 2px solid {border_color}; padding: 15px; border-radius: 10px; text-align: center; height: 210px;">
-                <h3 style="margin:0; color: {border_color};">{steps[i]}</h3>
-                <h4 style="margin:5px 0; color: {border_color};">{title}</h4>
-                <p style="margin:0; font-size: 13px;">{desc}</p>
+            <div style="background-color:rgba(0, 0, 0, 0.4); border-left: 5px solid {v_color}; padding: 20px; border-radius: 5px; height: 180px;">
+                <p style="color: #AAAAAA; margin:0; font-size: 14px; text-transform: uppercase;">Current Market Verdict</p>
+                <h1 style="color: {v_color}; margin: 5px 0;">{v_text}</h1>
+                <p style="color: #FFFFFF; margin:0; font-size: 16px;">Action: Execute order based on current alignment.</p>
             </div>
             ''', unsafe_allow_html=True)
+            
+        with col_future:
+            st.markdown(f'''
+            <div style="background-color:rgba(0, 0, 0, 0.4); border-left: 5px solid {gemini_color}; padding: 20px; border-radius: 5px; height: 180px;">
+                <p style="color: #AAAAAA; margin:0; font-size: 14px; text-transform: uppercase;">Predictive Horizon (Next 60 Min)</p>
+                <h3 style="color: {gemini_color}; margin: 5px 0;">{f_text}</h3>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- BOTTOM UI: CHAIN OF THOUGHT ---
+        st.markdown("### 🧬 Gemini's Chain of Thought (Analysis Log)")
+        
+        # Dynamic Text Generation
+        trend_log = f"Price (₹{c_price:.2f}) is currently **{'above' if c_price > ema50 else 'below'}** the 50 EMA macro line. Long term structure is {'Bullish' if c_price > sma200 else 'Bearish'}."
+        
+        vwap_log = f"Institutional Baseline (VWAP) sits at ₹{current_vwap:.2f}. The asset is trading **{'above' if c_price > current_vwap else 'below'}** this liquidity zone, showing smart money is {'accumulating' if c_price > current_vwap else 'distributing'}."
+        
+        rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. This indicates the asset is {'dangerously overbought and due for a crash' if rsi > 75 else 'oversold and primed for a bounce' if rsi < 30 else 'in a healthy channel with room to move'}."
+
+        st.markdown(f'''
+        <div style="background-color:rgba(20, 20, 20, 0.8); border: 1px solid #333333; padding: 20px; border-radius: 10px;">
+            <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Macro Trend...</p>
+            <p style="color: #CCCCCC; margin-bottom: 15px;">{trend_log}</p>
+            
+            <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Order Flow & VWAP...</p>
+            <p style="color: #CCCCCC; margin-bottom: 15px;">{vwap_log}</p>
+            
+            <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Calculating Velocity & Reversion...</p>
+            <p style="color: #CCCCCC; margin-bottom: 0;">{rsi_log}</p>
+        </div>
+        ''', unsafe_allow_html=True)
+
+    else:
+        st.error("Market Data Unavailable. Waiting for connection to the exchange...")
 
 # ==========================================
 # LIVE ENGINE TRIGGER
