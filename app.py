@@ -112,10 +112,10 @@ st.sidebar.header("⚡ Live Engine")
 live_mode = st.sidebar.toggle("🟢 Enable Live Auto-Update", value=False)
 
 # ==========================================
-# UPSTOX LIVE DATA ENGINE (FAST REFRESH)
+# UPSTOX LIVE DATA ENGINE
 # ==========================================
-# Cache 0.5 സെക്കൻഡ് ആക്കി കുറച്ചു
-@st.cache_data(ttl=0.5) 
+# 5 സെക്കൻഡ് കാഷെ
+@st.cache_data(ttl=5) 
 def load_upstox_data(inst_key, interval_choice="1m"):
     interval_map = {"1m": "1minute", "30m": "30minute", "1d": "day"}
     upstox_interval = interval_map.get(interval_choice, "1minute")
@@ -132,7 +132,7 @@ def load_upstox_data(inst_key, interval_choice="1m"):
             df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)
             df.set_index('Timestamp', inplace=True)
             df = df.sort_index()
-            # ഗ്രാഫ് വേഗത്തിൽ ലോഡ് ആകാൻ അവസാനത്തെ 150 കാൻഡിൽ മാത്രം എടുക്കുന്നു
+            # ഗ്രാഫ് ലോഡ് വേഗത്തിലാക്കാൻ അവസാനത്തെ 150 ഡാറ്റ മാത്രം എടുക്കുന്നു
             return df.tail(150) 
     except Exception as e:
         pass
@@ -321,7 +321,7 @@ if app_mode == "📈 Trading Terminal":
             paper_bgcolor=bg_color,
             dragmode='zoom', 
             hovermode='x unified',
-            uirevision=instrument_key # ഗ്രാഫ് റീഫ്രഷ് ആകുമ്പോൾ സൂം മാറിക്കാതിരിക്കാൻ
+            uirevision=instrument_key
         )
         
         st.plotly_chart(fig, use_container_width=True, config={
@@ -956,8 +956,8 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         st.error("Market Data Unavailable. Waiting for connection to the exchange...")
 
 # ==========================================
-# LIVE ENGINE TRIGGER (Fast Refresh: 0.5s)
+# LIVE ENGINE TRIGGER (Safe Refresh: 5s)
 # ==========================================
 if live_mode:
-   time.sleep(5)
+    time.sleep(5) 
     st.rerun()
