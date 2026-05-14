@@ -14,7 +14,7 @@ from streamlit_autorefresh import st_autorefresh
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
 # നിങ്ങളുടെ പുതിയ ടോക്കൺ ഇവിടെ നൽകുക
-UPSTOX_TOKEN = ""eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA1NTIxMWRkZWVlYTBhNWYyMDIxNzMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NzMzNTg1LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3OTYwMDB9.52zWtr-7yFFmFtczgWbIty2s7ofdFDuqgWutsABJvPI"
+UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA1NTIxMWRkZWVlYTBhNWYyMDIxNzMiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4NzMzNTg1LCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg3OTYwMDB9.52zWtr-7yFFmFtczgWbIty2s7ofdFDuqgWutsABJvPI"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
