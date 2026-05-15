@@ -841,7 +841,7 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
     st.subheader(f"🎯 Target Acquired: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
     st.info("I am analyzing the live Upstox tape. Synthesizing Volume, Volatility, and Macro Trend to deliver my final trading verdict.")
 
-    if not base_data.empty and len(base_data) > 50:
+    if not base_data.empty and len(base_data) > 10:
         # --- GEMINI AI MATH ENGINE ---
         close = base_data['Close']
         high = base_data['High']
