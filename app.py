@@ -663,25 +663,84 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
         st.error("Market Data Unavailable right now. The market may be closed or offline.")
 
 # ----------------------------------------
-# PAGE 4: THE FUTURE (ALL 100 INDICATORS)
+# PAGE 4: THE FUTURE (ALL 100 INDICATORS + 60 MIN HISTORY)
 # ----------------------------------------
 elif app_mode == "🔮 THE FUTURE":
     st.title("🔮 The Future: 100-Point Predictive Horizon")
     st.markdown("---")
     
     st.subheader(f"🏢 Active Target: {current_stock_info['Name']}")
-    st.info("Calculating 100 Forward-looking crash-proof probabilities across 8 timeframes using Upstox.")
+    st.info("Calculating 100 Forward-looking probabilities across 8 timeframes, heavily weighted by the last 60 minutes of historical volume and indicator dominance.")
 
     timeframes = ['1min', '2min', '3min', '5min', '10min', '15min', '30min', '60min']
     display_tf = ['1m', '2m', '3m', '5m', '10m', '15m', '30m', '60m']
     
-    if not base_data.empty:
-        st.markdown("### 📈 Probability of Next Candle Trend (Out of 100)")
+    if not base_data.empty and len(base_data) > 60:
+        
+        # --- 1. THE 60-MINUTE HISTORICAL MATRIX ENGINE ---
+        df_60 = base_data.tail(60).copy()
+        close_60 = df_60['Close']
+        high_60 = df_60['High']
+        low_60 = df_60['Low']
+        vol_60 = df_60['Volume']
+        
+        periods_10 = [3, 5, 7, 9, 12, 15, 20, 25, 30, 35]
+        total_bull_wins = 0
+        total_bear_wins = 0
+        total_signals = 0
+        
+        # Vectorized massive backtest over the last 60 minutes
+        for p in periods_10:
+            sma = close_60.rolling(window=p, min_periods=1).mean()
+            ema = close_60.ewm(span=p, adjust=False, min_periods=1).mean()
+            total_bull_wins += (close_60 > sma).sum() + (close_60 > ema).sum()
+            total_bear_wins += (close_60 < sma).sum() + (close_60 < ema).sum()
+            
+            fast = close_60.ewm(span=p, adjust=False, min_periods=1).mean()
+            slow = close_60.ewm(span=p*2, adjust=False, min_periods=1).mean()
+            total_bull_wins += (fast > slow).sum()
+            total_bear_wins += (fast < slow).sum()
+            
+            typ_price = (high_60 + low_60 + close_60) / 3
+            vp = typ_price * vol_60
+            vwap_p = vp.rolling(window=p, min_periods=1).sum() / (vol_60.rolling(window=p, min_periods=1).sum() + 1e-9)
+            total_bull_wins += (close_60 > vwap_p).sum()
+            total_bear_wins += (close_60 < vwap_p).sum()
+            
+            total_signals += len(close_60) * 4
+
+        # Calculate exact historical dominance percentage
+        bull_dominance_pct = (total_bull_wins / total_signals) * 100
+        bear_dominance_pct = (total_bear_wins / total_signals) * 100
+        
+        # --- 2. DISPLAY 60-MIN HISTORY METRICS ---
+        st.markdown("### 🧬 60-Minute Historical Matrix (Base Weighting Engine)")
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            st.markdown(f"""
+            <div style="background-color:rgba(0, 200, 83, 0.1); border: 1px solid #00C853; padding: 15px; border-radius: 8px; text-align: center;">
+                <h4 style="color:#00C853; margin:0;">HISTORICAL BULL STRENGTH</h4>
+                <h2 style="color:#00C853; margin:0;">{bull_dominance_pct:.1f}%</h2>
+                <p style="font-size:12px; margin:0; color:#AAA;">{total_bull_wins:,} positive signals over the last hour</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_m2:
+            st.markdown(f"""
+            <div style="background-color:rgba(255, 82, 82, 0.1); border: 1px solid #FF5252; padding: 15px; border-radius: 8px; text-align: center;">
+                <h4 style="color:#FF5252; margin:0;">HISTORICAL BEAR STRENGTH</h4>
+                <h2 style="color:#FF5252; margin:0;">{bear_dominance_pct:.1f}%</h2>
+                <p style="font-size:12px; margin:0; color:#AAA;">{total_bear_wins:,} negative signals over the last hour</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 📈 Probability of Next Candle Trend (Weighted out of 100)")
         tf_cols = st.columns(len(timeframes))
         
         detailed_bull_future = []
         detailed_bear_future = []
         
+        # --- 3. THE 8-TIMEFRAME CALCULATION (BLENDED WITH HISTORY) ---
         for i, tf in enumerate(timeframes):
             with tf_cols[i]:
                 try:
@@ -697,8 +756,6 @@ elif app_mode == "🔮 THE FUTURE":
                         
                         bull_momentum = []
                         bear_pressure = []
-                        
-                        periods_10 = [3, 5, 7, 9, 12, 15, 20, 25, 30, 35]
                         
                         for p in periods_10:
                             sma = close.rolling(window=p, min_periods=1).mean().fillna(0)
@@ -775,14 +832,19 @@ elif app_mode == "🔮 THE FUTURE":
                             detailed_bull_future = bull_momentum
                             detailed_bear_future = bear_pressure
 
-                        bull_prob = len(bull_momentum)
-                        bear_prob = len(bear_pressure)
-                        total = bull_prob + bear_prob
-                        bull_pct = int((bull_prob / total) * 100) if total > 0 else 50
+                        bull_prob_current = len(bull_momentum)
+                        bear_prob_current = len(bear_pressure)
+                        total_current = bull_prob_current + bear_prob_current
                         
-                        if bull_pct > 55:
+                        # Get the immediate timeframe percentage
+                        current_bull_pct = (bull_prob_current / total_current) * 100 if total_current > 0 else 50
+                        
+                        # THE MAGIC BLEND: 60% weight to immediate signals, 40% weight to massive 60-min history
+                        final_bull_pct = int((current_bull_pct * 0.6) + (bull_dominance_pct * 0.4))
+                        
+                        if final_bull_pct > 55:
                             bg_col, bord_col, arrow = "rgba(0, 200, 83, 0.15)", "#00C853", "📈 UP"
-                        elif bull_pct < 45:
+                        elif final_bull_pct < 45:
                             bg_col, bord_col, arrow = "rgba(255, 82, 82, 0.15)", "#FF5252", "📉 DOWN"
                         else:
                             bg_col, bord_col, arrow = "rgba(255, 167, 38, 0.15)", "#FFA726", "⚖️ NEUTRAL"
@@ -790,7 +852,7 @@ elif app_mode == "🔮 THE FUTURE":
                         st.markdown(f'''
                         <div style="background-color:{bg_col}; border: 2px solid {bord_col}; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px;">
                             <h4 style="margin:0; color: {bord_col};">{display_tf[i]}</h4>
-                            <h2 style="margin:5px 0; font-size: 24px; color: {bord_col};">{bull_pct}%</h2>
+                            <h2 style="margin:5px 0; font-size: 24px; color: {bord_col};">{final_bull_pct}%</h2>
                             <p style="margin:0; font-size: 10px; font-weight: bold;">{arrow}</p>
                         </div>
                         ''', unsafe_allow_html=True)
@@ -801,15 +863,15 @@ elif app_mode == "🔮 THE FUTURE":
                     st.error(f"Error on {display_tf[i]}: {str(e)}")
         
         st.markdown("---")
-        st.markdown("### ⚖️ The 100-Point Future Horizon (5-Minute Engine)")
+        st.markdown("### ⚖️ The 100-Point Future Horizon (5-Minute Engine Matrix)")
         
         col_bull_side, col_bear_side = st.columns(2)
         
         with col_bull_side:
             st.markdown(f'''
             <div style="background-color:rgba(0, 200, 83, 0.1); border: 2px solid #00C853; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #00C853; margin:0;">📈 BULLISH PROBABILITY</h2>
-                <h1 style="color: #00C853; margin:0; font-size: 50px;">{len(detailed_bull_future)}%</h1>
+                <h2 style="color: #00C853; margin:0;">📈 BULLISH SIGNALS</h2>
+                <h1 style="color: #00C853; margin:0; font-size: 50px;">{len(detailed_bull_future)}</h1>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -820,8 +882,8 @@ elif app_mode == "🔮 THE FUTURE":
         with col_bear_side:
             st.markdown(f'''
             <div style="background-color:rgba(255, 82, 82, 0.1); border: 2px solid #FF5252; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #FF5252; margin:0;">📉 BEARISH PROBABILITY</h2>
-                <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)}%</h1>
+                <h2 style="color: #FF5252; margin:0;">📉 BEARISH SIGNALS</h2>
+                <h1 style="color: #FF5252; margin:0; font-size: 50px;">{len(detailed_bear_future)}</h1>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -830,7 +892,7 @@ elif app_mode == "🔮 THE FUTURE":
                     st.markdown(f"⬇️ {ind}")
 
     else:
-        st.error("Market Data Unavailable right now. The market may be closed or offline.")
+        st.error("Market Data Unavailable. 60 Minutes of live data required to calculate the historical matrix.")
 
 # ----------------------------------------
 # PAGE 5: GEMINI SYNTHESIS ENGINE
