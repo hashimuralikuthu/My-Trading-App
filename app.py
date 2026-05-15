@@ -8,6 +8,7 @@ import io
 import time
 import json
 import os
+import math
 from streamlit_autorefresh import st_autorefresh
 
 # ==========================================
@@ -57,7 +58,7 @@ st.sidebar.title("👑 Terminal Menu")
 
 app_mode = st.sidebar.radio(
     "Select Page:", 
-    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS"],
+    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS", "🧠 QUANTUM PREDICTOR"],
     key="nav_menu"
 )
 
@@ -972,3 +973,130 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
 
     else:
         st.error("Market Data Unavailable. Waiting for connection to the exchange...")
+
+# ----------------------------------------
+# PAGE 6: THE QUANTUM PREDICTOR & CALCULATOR
+# ----------------------------------------
+elif app_mode == "🧠 QUANTUM PREDICTOR":
+    st.title("🧠 Quantum Predictor & Smart Assistant")
+    st.markdown("---")
+    
+    st.subheader(f"🎯 Target Acquired: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    st.info("Synthesizing all 5 terminal engines to calculate mathematical probability zones.")
+
+    if not base_data.empty and len(base_data) > 15:
+        # --- 1. MASTER SYNTHESIS BRAIN ---
+        close = base_data['Close']
+        high = base_data['High']
+        low = base_data['Low']
+        c_price = close.iloc[-1]
+        
+        # Calculate 1-Minute Volatility (ATR)
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        atr_1m = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14).mean().iloc[-1]
+        
+        # Gather Master Bias (Trend Direction)
+        ema50 = close.ewm(span=50, adjust=False).mean().iloc[-1]
+        macd = (close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()).iloc[-1]
+        
+        bias_score = 0
+        if c_price > ema50: bias_score += 1
+        else: bias_score -= 1
+        if macd > 0: bias_score += 1
+        else: bias_score -= 1
+        if close.iloc[-1] > close.iloc[-5]: bias_score += 1
+        else: bias_score -= 1
+        
+        if bias_score > 0:
+            trend_direction = "BULLISH 📈"
+            trend_color = "#00C853"
+            up_multiplier = 1.2  # Pushes upper targets higher
+            down_multiplier = 0.5 # Keeps lower targets tight
+        elif bias_score < 0:
+            trend_direction = "BEARISH 📉"
+            trend_color = "#FF5252"
+            up_multiplier = 0.5
+            down_multiplier = 1.2
+        else:
+            trend_direction = "NEUTRAL ⚖️"
+            trend_color = "#FFA726"
+            up_multiplier = 1.0
+            down_multiplier = 1.0
+
+        st.markdown(f"""
+        <div style="background-color:rgba(0,0,0,0.4); border: 1px solid #555; padding: 20px; border-radius: 10px;">
+            <h3 style="margin:0; color:#00E5FF;">Current Price: ₹{c_price:.2f}</h3>
+            <p style="margin:0; color:#CCC;">1-Min Base Volatility (ATR): ₹{atr_1m:.2f} | Master Synthesized Trend: <span style="color:{trend_color}; font-weight:bold;">{trend_direction}</span></p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- 2. THE TIME-MATRIX PREDICTOR ---
+        st.markdown("### ⏳ The Future Price Matrix (Probability Zones)")
+        
+        timeframes_mins = [1, 2, 3, 5, 8, 10, 15, 20, 25, 30, 40, 50, 60]
+        
+        # Create a visually stunning table for the predictions
+        cols = st.columns(4)
+        
+        for idx, t in enumerate(timeframes_mins):
+            # Square Root of Time rule for volatility expansion
+            expected_move = atr_1m * math.sqrt(t)
+            
+            target_high = c_price + (expected_move * up_multiplier)
+            target_low = c_price - (expected_move * down_multiplier)
+            
+            with cols[idx % 4]:
+                st.markdown(f"""
+                <div style="background-color:#111; border: 1px solid #333; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center;">
+                    <h5 style="margin:0; color:#8A2BE2;">{t} Min Horizon</h5>
+                    <p style="margin:5px 0 0 0; font-size:14px; color:#00C853;">High: ₹{target_high:.2f}</p>
+                    <p style="margin:0; font-size:14px; color:#FF5252;">Low: ₹{target_low:.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        
+        # --- 3. THE SMART ASSISTANT CALCULATOR ---
+        st.markdown("### 🧮 Smart Risk Calculator")
+        st.info("Let the assistant do the math. Enter your total capital and where you want your stop-loss.")
+        
+        calc_col1, calc_col2, calc_col3 = st.columns(3)
+        
+        with calc_col1:
+            trade_capital = st.number_input("Total Capital for this Trade (₹)", min_value=1000, value=50000, step=1000)
+            risk_pct = st.number_input("Max Risk % (How much can you lose?)", min_value=0.5, value=2.0, step=0.5)
+        
+        with calc_col2:
+            entry_price = st.number_input("Planned Entry Price (₹)", min_value=0.1, value=float(c_price))
+            # Suggest a stop loss based on ATR
+            suggested_sl = c_price - (atr_1m * 3) if bias_score >= 0 else c_price + (atr_1m * 3)
+            stop_loss = st.number_input("Stop Loss Price (₹)", min_value=0.1, value=float(suggested_sl))
+            
+        with calc_col3:
+            st.markdown("<br>", unsafe_allow_html=True)
+            max_loss_amount = trade_capital * (risk_pct / 100)
+            risk_per_share = abs(entry_price - stop_loss)
+            
+            if risk_per_share > 0:
+                recommended_qty = int(max_loss_amount / risk_per_share)
+                total_position_size = recommended_qty * entry_price
+                
+                # Cannot buy more than capital allows without leverage
+                if total_position_size > trade_capital:
+                    recommended_qty = int(trade_capital / entry_price)
+                    actual_risk = recommended_qty * risk_per_share
+                else:
+                    actual_risk = max_loss_amount
+
+                st.success(f"**Action Plan Generated:**")
+                st.write(f"🛒 **Buy Exactly:** {recommended_qty} Shares")
+                st.write(f"🛑 **Max Risk:** ₹{actual_risk:.2f}")
+                st.write(f"💰 **Position Size:** ₹{(recommended_qty * entry_price):,.2f}")
+            else:
+                st.warning("Entry and Stop Loss cannot be the same.")
+
+    else:
+        st.warning("Quantum Engine requires at least 15 minutes of live data to establish a volatility baseline.")
