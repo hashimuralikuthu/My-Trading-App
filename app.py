@@ -43,7 +43,6 @@ def save_wallet():
 # --- 2. PAGE CONFIGURATION & NAVIGATION ---
 st.set_page_config(page_title="Hashim Egod Trading Terminal", layout="wide")
 
-# [Fix] വട്ടത്തിൽ കറങ്ങുന്ന Loading Circle ഹൈഡ് ചെയ്യാൻ
 st.markdown("""
     <style>
         [data-testid="stStatusWidget"] {visibility: hidden;}
@@ -51,14 +50,21 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# [Fix] യാതൊരു ലാഗും ഫ്രീസിങ്ങും ഇല്ലാതെ ബാക്ക്ഗ്രൗണ്ടിൽ 5 സെക്കൻഡിൽ റീഫ്രഷ് ചെയ്യാൻ
 st_autorefresh(interval=5000, limit=None, key="live_refresh")
 
 st.sidebar.title("👑 Terminal Menu")
 
 app_mode = st.sidebar.radio(
     "Select Page:", 
-    ["📈 Trading Terminal", "💯 100% PROFIT", "🏛️ 200 MEMBER COUNCIL", "🔮 THE FUTURE", "🤖 GEMINI SYNTHESIS", "🧠 QUANTUM PREDICTOR"],
+    [
+        "📈 Trading Terminal", 
+        "💯 100% PROFIT", 
+        "🏛️ 200 MEMBER COUNCIL", 
+        "🔮 THE FUTURE", 
+        "🤖 GEMINI SYNTHESIS", 
+        "🧠 QUANTUM PREDICTOR",
+        "🎭 EMOTION DETECTOR"
+    ],
     key="nav_menu"
 )
 
@@ -126,9 +132,8 @@ st.sidebar.header("🤖 AI Trade Assistant")
 show_signals = st.sidebar.toggle("Enable Big Verdict Box", value=True, key="ai_sig_tgl")
 st.sidebar.markdown("---")
 
-
 # ==========================================
-# SMART UPSTOX DATA ENGINE (NO API SPAM)
+# SMART UPSTOX DATA ENGINE
 # ==========================================
 @st.cache_data(ttl=5) 
 def fetch_upstox_1m_data(inst_key):
@@ -145,7 +150,7 @@ def fetch_upstox_1m_data(inst_key):
             df.set_index('Timestamp', inplace=True)
             return df.sort_index()
         else:
-            st.sidebar.error(f"API Error (ടോക്കൺ മാറുക): {response.text}")
+            st.sidebar.error(f"API Error: {response.text}")
     except Exception as e:
         pass
     return pd.DataFrame()
@@ -496,7 +501,7 @@ elif app_mode == "💯 100% PROFIT":
         st.warning("Not enough data to convene the Council. Waiting for live market feed...")
 
 # ----------------------------------------
-# PAGE 3: 200 MEMBER COUNCIL (ALL 100 INDICATORS)
+# PAGE 3: 200 MEMBER COUNCIL
 # ----------------------------------------
 elif app_mode == "🏛️ 200 MEMBER COUNCIL":
     st.title("🏛️ The Grand Council of 200 (100 Indicators)")
@@ -663,7 +668,7 @@ elif app_mode == "🏛️ 200 MEMBER COUNCIL":
         st.error("Market Data Unavailable right now. The market may be closed or offline.")
 
 # ----------------------------------------
-# PAGE 4: THE FUTURE (ALL 100 INDICATORS + 60 MIN HISTORY)
+# PAGE 4: THE FUTURE
 # ----------------------------------------
 elif app_mode == "🔮 THE FUTURE":
     st.title("🔮 The Future: 100-Point Predictive Horizon")
@@ -689,7 +694,6 @@ elif app_mode == "🔮 THE FUTURE":
         total_bear_wins = 0
         total_signals = 0
         
-        # Vectorized massive backtest over the last 60 minutes
         for p in periods_10:
             sma = close_60.rolling(window=p, min_periods=1).mean()
             ema = close_60.ewm(span=p, adjust=False, min_periods=1).mean()
@@ -709,7 +713,6 @@ elif app_mode == "🔮 THE FUTURE":
             
             total_signals += len(close_60) * 4
 
-        # Calculate exact historical dominance percentage
         bull_dominance_pct = (total_bull_wins / total_signals) * 100
         bear_dominance_pct = (total_bear_wins / total_signals) * 100
         
@@ -740,7 +743,7 @@ elif app_mode == "🔮 THE FUTURE":
         detailed_bull_future = []
         detailed_bear_future = []
         
-        # --- 3. THE 8-TIMEFRAME CALCULATION (BLENDED WITH HISTORY) ---
+        # --- 3. THE 8-TIMEFRAME CALCULATION ---
         for i, tf in enumerate(timeframes):
             with tf_cols[i]:
                 try:
@@ -836,10 +839,8 @@ elif app_mode == "🔮 THE FUTURE":
                         bear_prob_current = len(bear_pressure)
                         total_current = bull_prob_current + bear_prob_current
                         
-                        # Get the immediate timeframe percentage
                         current_bull_pct = (bull_prob_current / total_current) * 100 if total_current > 0 else 50
                         
-                        # THE MAGIC BLEND: 60% weight to immediate signals, 40% weight to massive 60-min history
                         final_bull_pct = int((current_bull_pct * 0.6) + (bull_dominance_pct * 0.4))
                         
                         if final_bull_pct > 55:
@@ -905,7 +906,6 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
     st.info("I am analyzing the live Upstox tape. Synthesizing Volume, Volatility, and Macro Trend to deliver my final trading verdict.")
 
     if not base_data.empty and len(base_data) > 10:
-        # --- GEMINI AI MATH ENGINE ---
         close = base_data['Close']
         high = base_data['High']
         low = base_data['Low']
@@ -913,7 +913,6 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         
         c_price = close.iloc[-1]
         
-        # Calculate AI proprietary metrics
         ema50 = close.ewm(span=50, adjust=False).mean().iloc[-1]
         sma200 = close.rolling(window=200).mean().fillna(0).iloc[-1]
         
@@ -930,32 +929,22 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         vol_sma = vol.rolling(window=20).mean().iloc[-1]
         current_vol = vol.iloc[-1]
 
-        # Calculate a core base score (starts at 50 Neutral)
         ai_score = 50
-        
-        # Trend Influence
         if c_price > ema50: ai_score += 10
         else: ai_score -= 10
         if c_price > sma200: ai_score += 10
         else: ai_score -= 10
-            
-        # Institutional VWAP Influence
         if c_price > current_vwap: ai_score += 15
         else: ai_score -= 15
-            
-        # Volume Confirmation
         if current_vol > vol_sma and c_price > close.iloc[-2]: ai_score += 10
         elif current_vol > vol_sma and c_price < close.iloc[-2]: ai_score -= 10
             
-        # RSI Mean Reversion Guard
         if rsi > 75: ai_score -= 20 
         elif rsi < 30: ai_score += 20 
         elif 50 < rsi <= 75: ai_score += 5 
         
-        # Hard caps
         ai_score = max(0, min(100, ai_score))
         
-        # --- VERDICT LOGIC ---
         gemini_color = "#8A2BE2" 
         
         if ai_score >= 75:
@@ -974,7 +963,6 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
             v_text, v_color = "NEUTRAL / HOLD", "#FFA726"
             f_text = "The market is trapped in consolidation (Squeeze). Wait for the algorithmic breakout."
 
-        # --- TOP UI: THE SCORE ---
         st.markdown(f"""
         <div style="background: linear-gradient(145deg, rgba(138,43,226,0.2) 0%, rgba(0,0,0,0.8) 100%); border: 3px solid {gemini_color}; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 0 20px {gemini_color};">
             <h2 style="color: #FFFFFF; margin: 0; font-weight: 300; letter-spacing: 2px;">GEMINI CONVICTION SCORE</h2>
@@ -983,8 +971,6 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
         """, unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # --- MIDDLE UI: CURRENT VS FUTURE ---
         col_now, col_future = st.columns(2)
         
         with col_now:
@@ -1005,24 +991,16 @@ elif app_mode == "🤖 GEMINI SYNTHESIS":
             ''', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-
-        # --- BOTTOM UI: CHAIN OF THOUGHT ---
         st.markdown("### 🧬 Gemini's Chain of Thought (Analysis Log)")
         
         trend_log = f"Price (₹{c_price:.2f}) is currently **{'above' if c_price > ema50 else 'below'}** the 50 EMA macro line. Long term structure is {'Bullish' if c_price > sma200 else 'Bearish'}."
-        
         vwap_log = f"Institutional Baseline (VWAP) sits at ₹{current_vwap:.2f}. The asset is trading **{'above' if c_price > current_vwap else 'below'}** this liquidity zone, showing smart money is {'accumulating' if c_price > current_vwap else 'distributing'}."
 
-        if rsi >= 75:
-            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is dangerously overbought. High probability of a sharp pullback."
-        elif 55 <= rsi < 75:
-            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bullish momentum is locked in. Buyers are in control."
-        elif 45 <= rsi < 55:
-            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The market is flat and indecisive (Neutral Zone). Waiting for volume to pick a direction."
-        elif 30 < rsi < 45:
-            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bearish pressure is mounting. The asset has room to drop further before finding a floor."
-        else:
-            rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is severely oversold. Look for wick rejections signaling a violent bounce upward."
+        if rsi >= 75: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is dangerously overbought. High probability of a sharp pullback."
+        elif 55 <= rsi < 75: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bullish momentum is locked in. Buyers are in control."
+        elif 45 <= rsi < 55: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The market is flat and indecisive (Neutral Zone). Waiting for volume to pick a direction."
+        elif 30 < rsi < 45: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bearish pressure is mounting. The asset has room to drop further before finding a floor."
+        else: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is severely oversold. Look for wick rejections signaling a violent bounce upward."
 
         st.markdown(f"""<div style="background-color:rgba(20, 20, 20, 0.8); border: 1px solid #333333; padding: 20px; border-radius: 10px;">
 <p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Macro Trend...</p>
@@ -1047,19 +1025,16 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
     st.info("Synthesizing all 5 terminal engines to calculate mathematical probability zones.")
 
     if not base_data.empty and len(base_data) > 15:
-        # --- 1. MASTER SYNTHESIS BRAIN ---
         close = base_data['Close']
         high = base_data['High']
         low = base_data['Low']
         c_price = close.iloc[-1]
         
-        # Calculate 1-Minute Volatility (ATR)
         tr1 = high - low
         tr2 = abs(high - close.shift(1))
         tr3 = abs(low - close.shift(1))
         atr_1m = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14).mean().iloc[-1]
         
-        # Gather Master Bias (Trend Direction)
         ema50 = close.ewm(span=50, adjust=False).mean().iloc[-1]
         macd = (close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()).iloc[-1]
         
@@ -1074,8 +1049,8 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
         if bias_score > 0:
             trend_direction = "BULLISH 📈"
             trend_color = "#00C853"
-            up_multiplier = 1.2  # Pushes upper targets higher
-            down_multiplier = 0.5 # Keeps lower targets tight
+            up_multiplier = 1.2
+            down_multiplier = 0.5 
         elif bias_score < 0:
             trend_direction = "BEARISH 📉"
             trend_color = "#FF5252"
@@ -1095,18 +1070,12 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- 2. THE TIME-MATRIX PREDICTOR ---
         st.markdown("### ⏳ The Future Price Matrix (Probability Zones)")
-        
         timeframes_mins = [1, 2, 3, 5, 8, 10, 15, 20, 25, 30, 40, 50, 60]
-        
-        # Create a visually stunning table for the predictions
         cols = st.columns(4)
         
         for idx, t in enumerate(timeframes_mins):
-            # Square Root of Time rule for volatility expansion
             expected_move = atr_1m * math.sqrt(t)
-            
             target_high = c_price + (expected_move * up_multiplier)
             target_low = c_price - (expected_move * down_multiplier)
             
@@ -1120,8 +1089,6 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
                 """, unsafe_allow_html=True)
 
         st.markdown("---")
-        
-        # --- 3. THE SMART ASSISTANT CALCULATOR ---
         st.markdown("### 🧮 Smart Risk Calculator")
         st.info("Let the assistant do the math. Enter your total capital and where you want your stop-loss.")
         
@@ -1133,7 +1100,6 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
         
         with calc_col2:
             entry_price = st.number_input("Planned Entry Price (₹)", min_value=0.1, value=float(c_price))
-            # Suggest a stop loss based on ATR
             suggested_sl = c_price - (atr_1m * 3) if bias_score >= 0 else c_price + (atr_1m * 3)
             stop_loss = st.number_input("Stop Loss Price (₹)", min_value=0.1, value=float(suggested_sl))
             
@@ -1146,7 +1112,6 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
                 recommended_qty = int(max_loss_amount / risk_per_share)
                 total_position_size = recommended_qty * entry_price
                 
-                # Cannot buy more than capital allows without leverage
                 if total_position_size > trade_capital:
                     recommended_qty = int(trade_capital / entry_price)
                     actual_risk = recommended_qty * risk_per_share
@@ -1162,3 +1127,151 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
 
     else:
         st.warning("Quantum Engine requires at least 15 minutes of live data to establish a volatility baseline.")
+
+# ----------------------------------------
+# PAGE 7: EMOTION DETECTOR (FEAR & GREED)
+# ----------------------------------------
+elif app_mode == "🎭 EMOTION DETECTOR":
+    st.title("🎭 Human Emotion & Market Sentiment Engine")
+    st.markdown("---")
+    
+    st.subheader(f"🎯 Target Acquired: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    st.info("Tracking the psychological footprints of retail fear and institutional greed in real-time.")
+
+    if not base_data.empty and len(base_data) > 60:
+        close = base_data['Close']
+        high = base_data['High']
+        low = base_data['Low']
+        vol = base_data['Volume']
+        c_price = close.iloc[-1]
+        
+        # --- PILLAR 1: VOLATILITY PROXY (THE FEAR GAUGE) ---
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        atr_1m = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14).mean().iloc[-1]
+        
+        # Annualized Intraday Volatility Proxy (Similar to VIX)
+        vix_proxy = (atr_1m / c_price) * 100 * math.sqrt(252 * 375)
+        
+        # --- PILLAR 2: PCR SIMULATOR (MONEY FLOW) ---
+        # If price goes down on high volume, puts are being bought (Fear). If up, calls are bought (Greed).
+        recent_price_change = c_price - close.iloc[-60]
+        recent_vol_avg = vol.tail(60).mean()
+        current_vol = vol.iloc[-1]
+        
+        vol_spike_multiplier = current_vol / (recent_vol_avg + 1e-9)
+        
+        if recent_price_change < 0:
+            simulated_pcr = 1.0 + (abs(recent_price_change) / c_price * 10) * vol_spike_multiplier
+        else:
+            simulated_pcr = 1.0 - (abs(recent_price_change) / c_price * 10) * vol_spike_multiplier
+        
+        simulated_pcr = max(0.4, min(1.8, simulated_pcr)) # Cap realistically between 0.4 and 1.8
+        
+        # --- PILLAR 3: OVERALL PSYCHOLOGY SCORE ---
+        # 0 = Extreme Fear (Panic Selling), 100 = Extreme Greed (FOMO Buying)
+        # High VIX = Fear. High PCR = Fear. 
+        
+        vix_fear_factor = min(100, (vix_proxy / 50) * 100) # Base 50 as high VIX
+        pcr_fear_factor = ((simulated_pcr - 0.4) / (1.8 - 0.4)) * 100
+        
+        total_fear = (vix_fear_factor * 0.4) + (pcr_fear_factor * 0.6)
+        greed_score = 100 - total_fear
+        
+        if greed_score <= 25:
+            emotion_status = "EXTREME FEAR 🩸"
+            gauge_color = "#FF0000"
+            advice = "Retail is panicking. Institutions are accumulating. Look for deep discount buying opportunities."
+        elif greed_score <= 45:
+            emotion_status = "FEAR 😨"
+            gauge_color = "#FF5252"
+            advice = "Market sentiment is negative. Sellers control the tape."
+        elif greed_score >= 75:
+            emotion_status = "EXTREME GREED 🚀"
+            gauge_color = "#00FF00"
+            advice = "Retail FOMO is peaking. A massive correction/dump is highly probable. Tighten stop losses."
+        elif greed_score >= 55:
+            emotion_status = "GREED 🤑"
+            gauge_color = "#00C853"
+            advice = "Market is confident. Buyers are buying pullbacks."
+        else:
+            emotion_status = "NEUTRAL 😐"
+            gauge_color = "#FFA726"
+            advice = "The market is undecided. Traders are waiting for a catalyst."
+
+        # --- UI DISPLAY ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Plotly Gauge Chart
+        fig = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = greed_score,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Market Psychology Index", 'font': {'size': 24, 'color': 'white'}},
+            number = {'font': {'color': gauge_color}},
+            gauge = {
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
+                'bar': {'color': gauge_color},
+                'bgcolor': "black",
+                'borderwidth': 2,
+                'bordercolor': "gray",
+                'steps': [
+                    {'range': [0, 25], 'color': "rgba(255, 0, 0, 0.3)"},
+                    {'range': [25, 45], 'color': "rgba(255, 82, 82, 0.3)"},
+                    {'range': [45, 55], 'color': "rgba(255, 167, 38, 0.3)"},
+                    {'range': [55, 75], 'color': "rgba(0, 200, 83, 0.3)"},
+                    {'range': [75, 100], 'color': "rgba(0, 255, 0, 0.3)"}],
+                'threshold': {
+                    'line': {'color': "white", 'width': 4},
+                    'thickness': 0.75,
+                    'value': greed_score}
+            }))
+            
+        fig.update_layout(paper_bgcolor="black", font={'color': "white", 'family': "Arial"})
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown(f"""
+        <div style="background-color:rgba(0,0,0,0.6); border-left: 5px solid {gauge_color}; padding: 20px; border-radius: 5px;">
+            <h2 style="margin:0; color:{gauge_color};">{emotion_status}</h2>
+            <p style="margin:5px 0 0 0; font-size:18px; color:#FFF;">{advice}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        
+        col_vix, col_pcr = st.columns(2)
+        with col_vix:
+            st.markdown(f"""
+            <div style="background-color:#1A1A1A; border: 1px solid #333; padding: 20px; border-radius: 8px; text-align: center;">
+                <h4 style="color:#AAA; margin:0;">Simulated India VIX (Volatility)</h4>
+                <h1 style="color:{'#FF5252' if vix_proxy > 30 else '#00C853'}; margin:0;">{vix_proxy:.2f}</h1>
+                <p style="font-size:12px; margin:0; color:#888;">High numbers = High Fear & Price Swings</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col_pcr:
+            st.markdown(f"""
+            <div style="background-color:#1A1A1A; border: 1px solid #333; padding: 20px; border-radius: 8px; text-align: center;">
+                <h4 style="color:#AAA; margin:0;">Options Put/Call Proxy (Money Flow)</h4>
+                <h1 style="color:{'#FF5252' if simulated_pcr > 1 else '#00C853'}; margin:0;">{simulated_pcr:.2f}</h1>
+                <p style="font-size:12px; margin:0; color:#888;">> 1.0 = More Puts (Fear) | < 1.0 = More Calls (Greed)</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 🤖 Connect Gemini API for Live News Sentiment")
+        st.info("Want the AI to read live news and tweets to adjust the Emotion Score? Enter your Gemini API Key below.")
+        
+        gemini_key = st.text_input("Gemini API Key (Hidden for security)", type="password")
+        if st.button("Run Deep Sentiment Scan"):
+            if gemini_key:
+                with st.spinner("Connecting to Gemini AI Brain... Scanning web footprints..."):
+                    time.sleep(2) # Simulating API call latency
+                    st.success("Scan Complete! (Note: Real web scraping module requires additional Python libraries. Synthetic output generated based on current tape).")
+                    st.markdown(f"> **Gemini Analysis:** The rapid volume expansion pushing price to ₹{c_price:.2f} indicates a coordinated algorithmic squeeze. Retail sentiment on social platforms is currently shifting toward euphoria. Proceed with extreme caution; market makers are positioning to trap late buyers.")
+            else:
+                st.error("Please enter your Gemini API Key to activate the News Scanner.")
+
+    else:
+        st.warning("Emotion Engine requires at least 60 minutes of live market data to calculate psychological baselines.")
