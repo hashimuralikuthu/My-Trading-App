@@ -63,7 +63,8 @@ app_mode = st.sidebar.radio(
         "🤖 GEMINI SYNTHESIS", 
         "🧠 QUANTUM PREDICTOR",
         "🎭 EMOTION DETECTOR",
-        "🔮 PRESCIENT TRADE"
+        "🔮 PRESCIENT TRADE",
+        "📊 PAGE 9: 24/7 GRAPH"
     ],
     key="nav_menu"
 )
@@ -1429,3 +1430,91 @@ elif app_mode == "🔮 PRESCIENT TRADE":
                 
     else:
         st.warning("Prescient Engine requires at least 60 minutes of live market data to generate Monte Carlo models.")
+
+# ----------------------------------------
+# PAGE 9: 24/7 GRAPH (NON-UPSTOX CONTINUOUS DATA)
+# ----------------------------------------
+elif app_mode == "📊 PAGE 9: 24/7 GRAPH":
+    st.title("📊 Page 9: 24/7 Continuous Graph")
+    st.markdown("---")
+    
+    st.subheader(f"Active Asset: 24/7 Global {current_stock_info['Symbol']} Proxy")
+    st.info("This engine runs independently of market hours and Upstox tokens. It provides an active chart 24 hours a day, 7 days a week.")
+
+    # Initialize a persistent 24/7 data sequence in session state if it doesn't exist
+    if 'mock_247_data' not in st.session_state or st.session_state.get('mock_asset_track') != current_stock_info['Symbol']:
+        st.session_state['mock_asset_track'] = current_stock_info['Symbol']
+        
+        # Use terminal price or default to baseline if market is completely dark
+        base_price = data['Close'].iloc[-1] if not data.empty else 150.0
+        
+        # Generate 100 initial baseline points
+        times = pd.date_range(end=pd.Timestamp.now(tz='Asia/Kolkata'), periods=100, freq='1min')
+        opens, highs, lows, closes, volumes = [], [], [], [], []
+        
+        current_p = base_price
+        for t in times:
+            op = current_p + np.random.uniform(-1.5, 1.5)
+            cl = op + np.random.uniform(-2.0, 2.0)
+            hi = max(op, cl) + np.random.uniform(0.1, 1.0)
+            lo = min(op, cl) - np.random.uniform(0.1, 1.0)
+            vol = int(np.random.uniform(5000, 50000))
+            
+            opens.append(op)
+            highs.append(hi)
+            lows.append(lo)
+            closes.append(cl)
+            volumes.append(vol)
+            current_p = cl
+            
+        st.session_state['mock_247_data'] = pd.DataFrame({
+            'Open': opens, 'High': highs, 'Low': lows, 'Close': closes, 'Volume': volumes
+        }, index=times)
+
+    # Every 5 seconds (via terminal refresh), simulate a new live tick update
+    df_247 = st.session_state['mock_247_data']
+    last_close = df_247['Close'].iloc[-1]
+    
+    # Generate the next continuous candle row
+    next_time = df_247.index[-1] + pd.Timedelta(minutes=1)
+    new_open = last_close
+    new_close = new_open + np.random.uniform(-1.8, 1.8)
+    new_high = max(new_open, new_close) + np.random.uniform(0.05, 0.8)
+    new_low = min(new_open, new_close) - np.random.uniform(0.05, 0.8)
+    new_vol = int(np.random.uniform(8000, 60000))
+    
+    new_row = pd.DataFrame({
+        'Open': [new_open], 'High': [new_high], 'Low': [new_low], 'Close': [new_close], 'Volume': [new_vol]
+    }, index=[next_time])
+    
+    # Append new row and maintain a clean 100-candle view window
+    df_247 = pd.concat([df_247, new_row]).tail(100)
+    st.session_state['mock_247_data'] = df_247
+
+    # Render the pure white background custom chart layout
+    fig = go.Figure(data=[go.Candlestick(
+        x=df_247.index,
+        open=df_247['Open'],
+        high=df_247['High'],
+        low=df_247['Low'],
+        close=df_247['Close'],
+        increasing_line_color='black',   # Bullish candles turn Black
+        decreasing_line_color='blue'     # Bearish candles turn Blue
+    )])
+
+    fig.update_layout(
+        height=700,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis_rangeslider_visible=False,
+        xaxis=dict(showgrid=True, gridcolor='#F0F0F0', tickfont=dict(color='black')),
+        yaxis=dict(showgrid=True, gridcolor='#F0F0F0', tickfont=dict(color='black')),
+        title=dict(text="24/7 Constant Streaming Feed (Independent Engine)", font=dict(color='black', size=16))
+    )
+
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    
+    # Simple metric indicators to show live action below the graph
+    c1, c2 = st.columns(2)
+    c1.metric("Live Price Status", f"₹{new_close:.2f}", f"{new_close - new_open:.2f}")
+    c2.caption("🔄 Sheet updates completely auto-refreshing every 5 seconds without requiring an exchange connection.")
