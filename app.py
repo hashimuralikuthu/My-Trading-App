@@ -9,13 +9,14 @@ import time
 import json
 import os
 import math
+import yfinance as yf # Moved to the top for stability
 from streamlit_autorefresh import st_autorefresh
 
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
-# നിങ്ങളുടെ പുതിയ ടോക്കൺ ഇവിടെ നൽകുക
 UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTA4ZTBhMjZiOGRlZDQ0MWM1ZWE3MzQiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc4OTY2NjkwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3Nzg5Njg4MDB9.BFyi5OQXrSjnOmE1hFyd4ErpC2FyNfzggGyZG3iAmuI"
+
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
 WALLET_FILE = "hashim_wallet_data.json"
 
@@ -64,7 +65,7 @@ app_mode = st.sidebar.radio(
         "🧠 QUANTUM PREDICTOR",
         "🎭 EMOTION DETECTOR",
         "🔮 PRESCIENT TRADE",
-        "📊 PAGE 9: 24/7 GRAPH"
+        "📊 PAGE 9: YAHOO FINANCE GRAPH"
     ],
     key="nav_menu"
 )
@@ -1435,8 +1436,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
 # PAGE 9: YAHOO FINANCE GRAPH (ADVANCED)
 # ----------------------------------------
 elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
-    import yfinance as yf  # Run 'pip install yfinance' in your terminal if you haven't
-    
     st.title("📊 Page 9: Advanced Global Data Graph (Yahoo Finance)")
     st.markdown("---")
     
