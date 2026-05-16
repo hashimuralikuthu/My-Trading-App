@@ -1432,89 +1432,113 @@ elif app_mode == "🔮 PRESCIENT TRADE":
         st.warning("Prescient Engine requires at least 60 minutes of live market data to generate Monte Carlo models.")
 
 # ----------------------------------------
-# PAGE 9: 24/7 GRAPH (NON-UPSTOX CONTINUOUS DATA)
+# PAGE 9: YAHOO FINANCE GRAPH (ADVANCED)
 # ----------------------------------------
-elif app_mode == "📊 PAGE 9: 24/7 GRAPH":
-    st.title("📊 Page 9: 24/7 Continuous Graph")
+elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
+    import yfinance as yf  # Run 'pip install yfinance' in your terminal if you haven't
+    
+    st.title("📊 Page 9: Advanced Global Data Graph (Yahoo Finance)")
     st.markdown("---")
     
-    st.subheader(f"Active Asset: 24/7 Global {current_stock_info['Symbol']} Proxy")
-    st.info("This engine runs independently of market hours and Upstox tokens. It provides an active chart 24 hours a day, 7 days a week.")
+    nse_symbol = current_stock_info['Symbol']
+    yf_symbol = f"{nse_symbol}.NS"  # Yahoo Finance format for Indian NSE stocks
+    
+    st.subheader(f"Active Target: {current_stock_info['Name']} ({yf_symbol})")
+    st.info("100% FREE market data. Features advanced technicals and TradingView-style drawing tools. Works 24/7.")
 
-    # Initialize a persistent 24/7 data sequence in session state if it doesn't exist
-    if 'mock_247_data' not in st.session_state or st.session_state.get('mock_asset_track') != current_stock_info['Symbol']:
-        st.session_state['mock_asset_track'] = current_stock_info['Symbol']
-        
-        # Use terminal price or default to baseline if market is completely dark
-        base_price = data['Close'].iloc[-1] if not data.empty else 150.0
-        
-        # Generate 100 initial baseline points
-        times = pd.date_range(end=pd.Timestamp.now(tz='Asia/Kolkata'), periods=100, freq='1min')
-        opens, highs, lows, closes, volumes = [], [], [], [], []
-        
-        current_p = base_price
-        for t in times:
-            op = current_p + np.random.uniform(-1.5, 1.5)
-            cl = op + np.random.uniform(-2.0, 2.0)
-            hi = max(op, cl) + np.random.uniform(0.1, 1.0)
-            lo = min(op, cl) - np.random.uniform(0.1, 1.0)
-            vol = int(np.random.uniform(5000, 50000))
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        yf_period = st.selectbox("Historical Period", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "max"], index=1)
+    with col2:
+        yf_interval = st.selectbox("Candle Interval", ["1m", "2m", "5m", "15m", "30m", "60m", "1d", "1wk", "1mo"], index=3)
+    
+    with st.spinner(f"Connecting to Global Data... Pulling {yf_period} history..."):
+        try:
+            ticker = yf.Ticker(yf_symbol)
+            yf_data = ticker.history(period=yf_period, interval=yf_interval)
             
-            opens.append(op)
-            highs.append(hi)
-            lows.append(lo)
-            closes.append(cl)
-            volumes.append(vol)
-            current_p = cl
-            
-        st.session_state['mock_247_data'] = pd.DataFrame({
-            'Open': opens, 'High': highs, 'Low': lows, 'Close': closes, 'Volume': volumes
-        }, index=times)
+            if not yf_data.empty:
+                # --- ADVANCED CALCULATIONS ---
+                yf_data['SMA20'] = yf_data['Close'].rolling(window=20).mean()
+                yf_data['EMA50'] = yf_data['Close'].ewm(span=50, adjust=False).mean()
+                
+                delta = yf_data['Close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                yf_data['RSI'] = 100 - (100 / (1 + (gain / loss + 1e-9)))
+                
+                exp1 = yf_data['Close'].ewm(span=12, adjust=False).mean()
+                exp2 = yf_data['Close'].ewm(span=26, adjust=False).mean()
+                yf_data['MACD'] = exp1 - exp2
+                yf_data['Signal'] = yf_data['MACD'].ewm(span=9, adjust=False).mean()
 
-    # Every 5 seconds (via terminal refresh), simulate a new live tick update
-    df_247 = st.session_state['mock_247_data']
-    last_close = df_247['Close'].iloc[-1]
-    
-    # Generate the next continuous candle row
-    next_time = df_247.index[-1] + pd.Timedelta(minutes=1)
-    new_open = last_close
-    new_close = new_open + np.random.uniform(-1.8, 1.8)
-    new_high = max(new_open, new_close) + np.random.uniform(0.05, 0.8)
-    new_low = min(new_open, new_close) - np.random.uniform(0.05, 0.8)
-    new_vol = int(np.random.uniform(8000, 60000))
-    
-    new_row = pd.DataFrame({
-        'Open': [new_open], 'High': [new_high], 'Low': [new_low], 'Close': [new_close], 'Volume': [new_vol]
-    }, index=[next_time])
-    
-    # Append new row and maintain a clean 100-candle view window
-    df_247 = pd.concat([df_247, new_row]).tail(100)
-    st.session_state['mock_247_data'] = df_247
+                # --- PLOTLY ADVANCED MULTI-PANEL CHART ---
+                fig = make_subplots(
+                    rows=4, cols=1, 
+                    shared_xaxes=True, 
+                    vertical_spacing=0.03, 
+                    row_heights=[0.5, 0.15, 0.15, 0.2]
+                )
 
-    # Render the pure white background custom chart layout
-    fig = go.Figure(data=[go.Candlestick(
-        x=df_247.index,
-        open=df_247['Open'],
-        high=df_247['High'],
-        low=df_247['Low'],
-        close=df_247['Close'],
-        increasing_line_color='black',   # Bullish candles turn Black
-        decreasing_line_color='blue'     # Bearish candles turn Blue
-    )])
+                bull_color = 'black'
+                bear_color = 'blue'
 
-    fig.update_layout(
-        height=700,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis_rangeslider_visible=False,
-        xaxis=dict(showgrid=True, gridcolor='#F0F0F0', tickfont=dict(color='black')),
-        yaxis=dict(showgrid=True, gridcolor='#F0F0F0', tickfont=dict(color='black')),
-        title=dict(text="24/7 Constant Streaming Feed (Independent Engine)", font=dict(color='black', size=16))
-    )
+                # 1. Price Candlesticks & Moving Averages
+                fig.add_trace(go.Candlestick(
+                    x=yf_data.index,
+                    open=yf_data['Open'], high=yf_data['High'], low=yf_data['Low'], close=yf_data['Close'],
+                    increasing_line_color=bull_color, decreasing_line_color=bear_color,
+                    name='Price'
+                ), row=1, col=1)
+                
+                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['SMA20'], line=dict(color='#FFA500', width=2), name='SMA 20'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['EMA50'], line=dict(color='#FF00FF', width=2), name='EMA 50'), row=1, col=1)
 
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-    
-    # Simple metric indicators to show live action below the graph
-    c1, c2 = st.columns(2)
-    c1.metric("Live Price Status", f"₹{new_close:.2f}", f"{new_close - new_open:.2f}")
-    c2.caption("🔄 Sheet updates completely auto-refreshing every 5 seconds without requiring an exchange connection.")
+                # 2. Volume 
+                vol_colors = [bull_color if row['Close'] >= row['Open'] else bear_color for index, row in yf_data.iterrows()]
+                fig.add_trace(go.Bar(x=yf_data.index, y=yf_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+
+                # 3. RSI
+                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['RSI'], line=dict(color='#8A2BE2', width=2), name='RSI'), row=3, col=1)
+                fig.add_hline(y=70, line_dash="dash", line_color=bear_color, row=3, col=1)
+                fig.add_hline(y=30, line_dash="dash", line_color=bull_color, row=3, col=1)
+
+                # 4. MACD
+                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['MACD'], line=dict(color='#2962FF', width=2), name='MACD'), row=4, col=1)
+                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['Signal'], line=dict(color='#FF8C00', width=2), name='Signal'), row=4, col=1)
+
+                # --- FORMATTING (PURE WHITE THEME) ---
+                fig.update_layout(
+                    height=900,
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    xaxis_rangeslider_visible=False,
+                    dragmode='zoom',
+                    hovermode='x unified',
+                    title=dict(text=f"Advanced Analysis for {yf_symbol}", font=dict(color='black', size=20)),
+                    showlegend=False
+                )
+
+                # Grid Colors
+                fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', tickfont=dict(color='black'))
+                fig.update_yaxes(showgrid=True, gridcolor='#E0E0E0', tickfont=dict(color='black'))
+
+                # Display the chart with TradingView-style Drawing Tools Enabled
+                st.plotly_chart(fig, use_container_width=True, config={
+                    'scrollZoom': True,
+                    'displayModeBar': True,
+                    'displaylogo': False,
+                    'modeBarButtonsToAdd': [
+                        'drawline', 
+                        'drawopenpath', 
+                        'drawcircle', 
+                        'drawrect', 
+                        'eraseshape'
+                    ]
+                })
+                
+            else:
+                st.warning(f"No data found for {yf_symbol}. Note: Yahoo Finance limits '1m' data to the last 7 days. If your period is too long, change the interval.")
+                
+        except Exception as e:
+            st.error(f"Error fetching data from Yahoo Finance: {str(e)}")
