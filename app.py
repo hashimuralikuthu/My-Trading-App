@@ -15,7 +15,6 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
-# It is highly recommended to move this token to st.secrets["UPSTOX_TOKEN"] for deployment security!
 UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTBhOTQyNGUwODc2NTczYWRiZDZkMDIiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc5MDc4MTgwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NzkxNDE2MDB9.XO1FN5S_Qn3WPWP-8xYMmlxQ-ECzP5Y72QVGN1KCn8g"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
@@ -1483,7 +1482,6 @@ elif app_mode == "🏆 PAGE 9: MASTER DASHBOARD":
         # --- UI: THE GOLDEN GRID ---
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # CSS Style for Golden Boxes with Silver Borders
         gold_style = """
             background: linear-gradient(135deg, #FFDF00 0%, #D4AF37 50%, #996515 100%);
             border: 4px outset #C0C0C0;
@@ -1617,12 +1615,13 @@ elif app_mode == "🔺 PAGE 10: TRINITY ENGINE":
         pcr_fear_factor = ((simulated_pcr - 0.4) / (1.8 - 0.4)) * 100
         
         total_fear = (vix_fear_factor * 0.4) + (pcr_fear_factor * 0.6)
-        emotion_score_pct = 100 - total_fear # Higher Greed = More Bullish
+        emotion_score_pct = 100 - total_fear 
 
         # ==========================================
-        # 4. TRINITY MASTER CALCULATION
+        # 4. TRINITY MASTER CALCULATION (WEIGHTED)
         # ==========================================
-        trinity_master_score = (council_score_pct + future_score_pct + emotion_score_pct) / 3
+        # CHANGED: Implemented custom weight allocation (23% Council, 40% Future, 37% Emotion)
+        trinity_master_score = (council_score_pct * 0.23) + (future_score_pct * 0.40) + (emotion_score_pct * 0.37)
 
         # Color and Text logic for individual engines
         def get_status(score):
@@ -1650,7 +1649,7 @@ elif app_mode == "🔺 PAGE 10: TRINITY ENGINE":
         with col1:
             st.markdown(f"""
             <div style="{panel_style}; border-bottom: 4px solid {c_col};">
-                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">200 Member Council</h4>
+                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">200 Member Council (23%)</h4>
                 <h1 style="color:{c_col}; margin:10px 0;">{council_score_pct:.1f}%</h1>
                 <p style="color:{c_col}; margin:0; font-weight:bold;">{c_text}</p>
             </div>
@@ -1659,7 +1658,7 @@ elif app_mode == "🔺 PAGE 10: TRINITY ENGINE":
         with col2:
             st.markdown(f"""
             <div style="{panel_style}; border-bottom: 4px solid {f_col};">
-                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">The Future Horizon</h4>
+                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">The Future Horizon (40%)</h4>
                 <h1 style="color:{f_col}; margin:10px 0;">{future_score_pct:.1f}%</h1>
                 <p style="color:{f_col}; margin:0; font-weight:bold;">{f_text}</p>
             </div>
@@ -1668,7 +1667,7 @@ elif app_mode == "🔺 PAGE 10: TRINITY ENGINE":
         with col3:
             st.markdown(f"""
             <div style="{panel_style}; border-bottom: 4px solid {e_col};">
-                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">Emotion Detector</h4>
+                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">Emotion Detector (37%)</h4>
                 <h1 style="color:{e_col}; margin:10px 0;">{emotion_score_pct:.1f}%</h1>
                 <p style="color:{e_col}; margin:0; font-weight:bold;">{e_text}</p>
             </div>
