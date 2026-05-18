@@ -67,10 +67,9 @@ app_mode = st.sidebar.radio(
         "🎭 EMOTION DETECTOR",
         "🔮 PRESCIENT TRADE",
         "🏆 PAGE 9: MASTER DASHBOARD",
-        "🔺 PAGE 10: TRINITY ENGINE" # <--- ADD THIS HERE
+        "🔺 PAGE 10: TRINITY ENGINE"
     ],
     key="nav_menu"
-)
 )
 
 # --- ADVANCED NSE TICKER & UPSTOX DATA FETCHING ---
@@ -899,7 +898,7 @@ elif app_mode == "🔮 THE FUTURE":
         st.error("Market Data Unavailable. 60 Minutes of live data required to calculate the historical matrix.")
 
 # ----------------------------------------
-# NEW INTEGRATION: PAGE 5: GEMINI SYNTHESIS ENGINE
+# PAGE 5: GEMINI SYNTHESIS ENGINE
 # ----------------------------------------
 elif app_mode == "🤖 GEMINI SYNTHESIS":
     st.title("🔮 Gemini Kinetic Prediction Engine (15-Min Micro-Cluster)")
@@ -1394,7 +1393,7 @@ elif app_mode == "🔮 PRESCIENT TRADE":
 # ----------------------------------------
 # PAGE 9: THE GOLDEN MASTER DASHBOARD
 # ----------------------------------------
-elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
+elif app_mode == "🏆 PAGE 9: MASTER DASHBOARD":
     st.title("🏆 The Golden Master Dashboard (System Aggregate)")
     st.markdown("---")
     
@@ -1535,7 +1534,8 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
 
     else:
         st.error("Insufficient market data. The Golden Master Dashboard requires at least 60 minutes of live data to compile all engine verdicts.")
-        # ----------------------------------------
+
+# ----------------------------------------
 # PAGE 10: THE TRINITY ENGINE (COUNCIL + FUTURE + EMOTION)
 # ----------------------------------------
 elif app_mode == "🔺 PAGE 10: TRINITY ENGINE":
