@@ -1390,102 +1390,146 @@ elif app_mode == "🔮 PRESCIENT TRADE":
         st.warning("Prescient Engine requires at least 60 minutes of live market data to generate Monte Carlo models.")
 
 # ----------------------------------------
-# PAGE 9: YAHOO FINANCE GRAPH (ADVANCED)
+# PAGE 9: THE GOLDEN MASTER DASHBOARD
 # ----------------------------------------
 elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
-    st.title("📊 Page 9: Advanced Global Data Graph (Yahoo Finance)")
+    st.title("🏆 The Golden Master Dashboard (System Aggregate)")
     st.markdown("---")
     
-    nse_symbol = current_stock_info['Symbol']
-    yf_symbol = f"{nse_symbol}.NS"
-    
-    st.subheader(f"Active Target: {current_stock_info['Name']} ({yf_symbol})")
-    st.info("100% FREE market data. Features advanced technicals and TradingView-style drawing tools. Works 24/7.")
+    st.subheader(f"🎯 Master Target: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    st.info("Aggregating live signals from all 8 autonomous trading engines into a single executive view.")
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        yf_period = st.selectbox("Historical Period", ["1d", "5d", "1mo", "3mo", "6mo", "1y", "max"], index=1)
-    with col2:
-        yf_interval = st.selectbox("Candle Interval", ["1m", "2m", "5m", "15m", "30m", "60m", "1d", "1wk", "1mo"], index=3)
-    
-    with st.spinner(f"Connecting to Global Data... Pulling {yf_period} history..."):
-        try:
-            ticker = yf.Ticker(yf_symbol)
-            yf_data = ticker.history(period=yf_period, interval=yf_interval)
-            
-            if not yf_data.empty:
-                yf_data['SMA20'] = yf_data['Close'].rolling(window=20).mean()
-                yf_data['EMA50'] = yf_data['Close'].ewm(span=50, adjust=False).mean()
+    if not base_data.empty and len(base_data) > 60:
+        # --- CONDENSED ENGINE CALCULATIONS FOR MASTER DASHBOARD ---
+        close = base_data['Close']
+        high = base_data['High']
+        low = base_data['Low']
+        vol = base_data['Volume']
+        c_price = close.iloc[-1]
+        
+        # Core Indicators needed for the 8 engines
+        sma20 = close.rolling(window=20, min_periods=1).mean().iloc[-1]
+        ema50 = close.ewm(span=50, adjust=False, min_periods=1).mean().iloc[-1]
+        
+        delta = close.diff().fillna(0)
+        gain = delta.where(delta > 0, 0).rolling(window=14, min_periods=1).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=14, min_periods=1).mean()
+        rs = gain / (loss + 1e-9)
+        rsi = 100 - (100 / (1 + rs)).fillna(50).iloc[-1]
+        
+        exp12 = close.ewm(span=12, adjust=False, min_periods=1).mean()
+        exp26 = close.ewm(span=26, adjust=False, min_periods=1).mean()
+        macd = (exp12 - exp26).iloc[-1]
+        
+        # Engine 5 Kinetic Calculation (Last 15 mins)
+        m15_closes = close.tail(15).to_numpy()
+        slope, _ = np.polyfit(np.arange(15), m15_closes, 1) if len(m15_closes) == 15 else (0, 0)
+        
+        # Engine 7 Emotion Calculation
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        atr_1m = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14, min_periods=1).mean().iloc[-1]
+        vix_proxy = (atr_1m / c_price) * 100 * math.sqrt(252 * 375)
+
+        # --- 1. Terminal AI ---
+        ai_score = 0
+        if rsi > 50: ai_score += 1
+        else: ai_score -= 1
+        if macd > 0: ai_score += 1
+        else: ai_score -= 1
+        e1_sig = "BULLISH 🟢" if ai_score > 0 else "BEARISH 🔴"
+        e1_col = "#006400" if ai_score > 0 else "#8B0000"
+
+        # --- 2. Council of 10 ---
+        c10_votes = 0
+        if c_price > sma20: c10_votes += 1
+        if c_price > ema50: c10_votes += 1
+        if rsi < 70 and rsi > 40: c10_votes += 1
+        e2_sig = "BULLISH 🟢" if c10_votes >= 2 else "BEARISH 🔴"
+        e2_col = "#006400" if c10_votes >= 2 else "#8B0000"
+
+        # --- 3. Grand Council 200 ---
+        vol_sma = vol.rolling(window=20, min_periods=1).mean().iloc[-1]
+        e3_sig = "BULLISH 🟢" if vol.iloc[-1] > vol_sma and c_price > close.iloc[-2] else "BEARISH 🔴"
+        e3_col = "#006400" if e3_sig.startswith("BULLISH") else "#8B0000"
+
+        # --- 4. The Future Horizon ---
+        e4_sig = "BULLISH 🟢" if c_price > close.tail(60).mean() else "BEARISH 🔴"
+        e4_col = "#006400" if e4_sig.startswith("BULLISH") else "#8B0000"
+
+        # --- 5. Kinetic Prediction ---
+        e5_sig = "BULLISH 🟢" if slope > 0 else "BEARISH 🔴"
+        e5_col = "#006400" if slope > 0 else "#8B0000"
+
+        # --- 6. Quantum Predictor ---
+        bias = 0
+        if c_price > ema50: bias += 1
+        else: bias -= 1
+        if c_price > close.iloc[-5]: bias += 1
+        else: bias -= 1
+        e6_sig = "BULLISH 🟢" if bias > 0 else "BEARISH 🔴"
+        e6_col = "#006400" if bias > 0 else "#8B0000"
+
+        # --- 7. Emotion Engine ---
+        e7_sig = "FEAR (SELL) 🔴" if vix_proxy > 20 else "GREED (BUY) 🟢"
+        e7_col = "#8B0000" if vix_proxy > 20 else "#006400"
+
+        # --- 8. Prescient Pattern ---
+        e8_sig = "BREAKOUT UP 🟢" if c_price > high.tail(10).max() * 0.999 else "REJECTION DOWN 🔴"
+        e8_col = "#006400" if e8_sig.startswith("BREAKOUT") else "#8B0000"
+
+        # --- UI: THE GOLDEN GRID ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # CSS Style for Golden Boxes with Silver Borders
+        gold_style = """
+            background: linear-gradient(135deg, #FFDF00 0%, #D4AF37 50%, #996515 100%);
+            border: 4px outset #C0C0C0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.4);
+            margin-bottom: 20px;
+        """
+        
+        row1 = st.columns(4)
+        row2 = st.columns(4)
+        
+        panels = [
+            (row1[0], "1. Trading Terminal", e1_sig, e1_col),
+            (row1[1], "2. 100% Profit", e2_sig, e2_col),
+            (row1[2], "3. 200 Member Council", e3_sig, e3_col),
+            (row1[3], "4. The Future Horizon", e4_sig, e4_col),
+            (row2[0], "5. Gemini Kinetic", e5_sig, e5_col),
+            (row2[1], "6. Quantum Predictor", e6_sig, e6_col),
+            (row2[2], "7. Emotion Detector", e7_sig, e7_col),
+            (row2[3], "8. Prescient Trade", e8_sig, e8_col),
+        ]
+        
+        for col, title, signal, color in panels:
+            with col:
+                st.markdown(f"""
+                <div style="{gold_style}">
+                    <h5 style="color: #000000; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; font-size: 13px; text-shadow: 1px 1px 2px rgba(255,255,255,0.5);">{title}</h5>
+                    <h3 style="background-color: {color}; color: #FFFFFF; padding: 10px; border-radius: 5px; margin: 0; font-weight: 900; border: 2px solid #000; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">{signal}</h3>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                delta = yf_data['Close'].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                yf_data['RSI'] = 100 - (100 / (1 + (gain / loss + 1e-9)))
-                
-                exp1 = yf_data['Close'].ewm(span=12, adjust=False).mean()
-                exp2 = yf_data['Close'].ewm(span=26, adjust=False).mean()
-                yf_data['MACD'] = exp1 - exp2
-                yf_data['Signal'] = yf_data['MACD'].ewm(span=9, adjust=False).mean()
+        # Master Consensus Bar
+        st.markdown("---")
+        bull_count = sum(1 for _, _, sig, _ in panels if "🟢" in sig)
+        bear_count = 8 - bull_count
+        
+        master_text = "OVERWHELMING BULLISH BUY" if bull_count >= 6 else "OVERWHELMING BEARISH SELL" if bear_count >= 6 else "MIXED / NEUTRAL ZONE"
+        master_color = "#00C853" if bull_count >= 6 else "#FF5252" if bear_count >= 6 else "#FFA726"
+        
+        st.markdown(f"""
+        <div style="background: #111; border: 3px solid {master_color}; padding: 30px; border-radius: 10px; text-align: center;">
+            <h3 style="color: #AAA; margin: 0; text-transform: uppercase;">Master Consensus ({bull_count} Bulls vs {bear_count} Bears)</h3>
+            <h1 style="color: {master_color}; margin: 10px 0 0 0; font-size: 45px; font-weight: 900;">{master_text}</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
-                fig = make_subplots(
-                    rows=4, cols=1, 
-                    shared_xaxes=True, 
-                    vertical_spacing=0.03, 
-                    row_heights=[0.5, 0.15, 0.15, 0.2]
-                )
-
-                bull_color = 'black'
-                bear_color = 'blue'
-
-                fig.add_trace(go.Candlestick(
-                    x=yf_data.index,
-                    open=yf_data['Open'], high=yf_data['High'], low=yf_data['Low'], close=yf_data['Close'],
-                    increasing_line_color=bull_color, decreasing_line_color=bear_color,
-                    name='Price'
-                ), row=1, col=1)
-                
-                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['SMA20'], line=dict(color='#FFA500', width=2), name='SMA 20'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['EMA50'], line=dict(color='#FF00FF', width=2), name='EMA 50'), row=1, col=1)
-
-                vol_colors = [bull_color if row['Close'] >= row['Open'] else bear_color for index, row in yf_data.iterrows()]
-                fig.add_trace(go.Bar(x=yf_data.index, y=yf_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
-
-                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['RSI'], line=dict(color='#8A2BE2', width=2), name='RSI'), row=3, col=1)
-                fig.add_hline(y=70, line_dash="dash", line_color=bear_color, row=3, col=1)
-                fig.add_hline(y=30, line_dash="dash", line_color=bull_color, row=3, col=1)
-
-                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['MACD'], line=dict(color='#2962FF', width=2), name='MACD'), row=4, col=1)
-                fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['Signal'], line=dict(color='#FF8C00', width=2), name='Signal'), row=4, col=1)
-
-                fig.update_layout(
-                    height=900,
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    xaxis_rangeslider_visible=False,
-                    dragmode='zoom',
-                    hovermode='x unified',
-                    title=dict(text=f"Advanced Analysis for {yf_symbol}", font=dict(color='black', size=20)),
-                    showlegend=False
-                )
-
-                fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', tickfont=dict(color='black'))
-                fig.update_yaxes(showgrid=True, gridcolor='#E0E0E0', tickfont=dict(color='black'))
-
-                st.plotly_chart(fig, use_container_width=True, config={
-                    'scrollZoom': True,
-                    'displayModeBar': True,
-                    'displaylogo': False,
-                    'modeBarButtonsToAdd': [
-                        'drawline', 
-                        'drawopenpath', 
-                        'drawcircle', 
-                        'drawrect', 
-                        'eraseshape'
-                    ]
-                })
-                
-            else:
-                st.warning(f"No data found for {yf_symbol}. Note: Yahoo Finance limits '1m' data to the last 7 days. If your period is too long, change the interval.")
-                
-        except Exception as e:
-            st.error(f"Error fetching data from Yahoo Finance: {str(e)}")
+    else:
+        st.error("Insufficient market data. The Golden Master Dashboard requires at least 60 minutes of live data to compile all engine verdicts.")
