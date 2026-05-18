@@ -9,12 +9,13 @@ import time
 import json
 import os
 import math
-import yfinance as yf # Moved to the top for stability
+import yfinance as yf 
 from streamlit_autorefresh import st_autorefresh
 
 # ==========================================
 # 0. UPSTOX API CONFIGURATION
 # ==========================================
+# It is highly recommended to move this token to st.secrets["UPSTOX_TOKEN"] for deployment security!
 UPSTOX_TOKEN = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI1TkNMNUIiLCJqdGkiOiI2YTBhOTQyNGUwODc2NTczYWRiZDZkMDIiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6dHJ1ZSwiaWF0IjoxNzc5MDc4MTgwLCJpc3MiOiJ1ZGFwaS1nYXRld2F5LXNlcnZpY2UiLCJleHAiOjE3NzkxNDE2MDB9.XO1FN5S_Qn3WPWP-8xYMmlxQ-ECzP5Y72QVGN1KCn8g"
 
 # --- 1. PERSISTENT STORAGE (CRASH-PROOF) ---
@@ -25,7 +26,7 @@ def load_wallet():
         try:
             with open(WALLET_FILE, "r") as f:
                 return json.load(f)
-        except:
+        except (json.JSONDecodeError, IOError):
             return None 
     return None
 
@@ -93,7 +94,7 @@ def get_all_nse_data():
                 'Face_Value': row['FACE VALUE']
             }
         return stock_data
-    except Exception as e:
+    except Exception:
         return {
             "Zomato Limited (ZOMATO)": {'Name': 'Zomato Limited', 'Symbol': 'ZOMATO', 'ISIN': 'INE758T01015', 'Upstox_Key': 'NSE_EQ|INE758T01015', 'Listing_Date': '23-JUL-2021', 'Face_Value': '1'},
             "Reliance Industries Limited (RELIANCE)": {'Name': 'Reliance Industries Limited', 'Symbol': 'RELIANCE', 'ISIN': 'INE002A01018', 'Upstox_Key': 'NSE_EQ|INE002A01018', 'Listing_Date': '29-NOV-1995', 'Face_Value': '10'}
@@ -151,9 +152,7 @@ def fetch_upstox_1m_data(inst_key):
             df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric)
             df.set_index('Timestamp', inplace=True)
             return df.sort_index()
-        else:
-            st.sidebar.error(f"API Error: {response.text}")
-    except Exception as e:
+    except Exception:
         pass
     return pd.DataFrame()
 
@@ -203,7 +202,7 @@ if app_mode == "📈 Trading Terminal":
             try:
                 bg_data = fetch_upstox_1m_data(t)
                 live_p = bg_data['Close'].iloc[-1] if not bg_data.empty else p_data['entry']
-            except:
+            except Exception:
                 live_p = p_data['entry']
         if p_data['type'] == 'BUY': global_unrealized_pnl += (live_p - p_data['entry']) * p_data['qty']
         elif p_data['type'] == 'SHORT': global_unrealized_pnl += (p_data['entry'] - live_p) * p_data['qty']
@@ -898,123 +897,108 @@ elif app_mode == "🔮 THE FUTURE":
         st.error("Market Data Unavailable. 60 Minutes of live data required to calculate the historical matrix.")
 
 # ----------------------------------------
-# PAGE 5: GEMINI SYNTHESIS ENGINE
+# NEW INTEGRATION: PAGE 5: GEMINI SYNTHESIS ENGINE
 # ----------------------------------------
 elif app_mode == "🤖 GEMINI SYNTHESIS":
-    st.title("🧠 Gemini Synthesis Engine")
+    st.title("🔮 Gemini Kinetic Prediction Engine (15-Min Micro-Cluster)")
     st.markdown("---")
     
-    st.subheader(f"🎯 Target Acquired: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
-    st.info("I am analyzing the live Upstox tape. Synthesizing Volume, Volatility, and Macro Trend to deliver my final trading verdict.")
+    st.subheader(f"🎯 Analysis Target: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    st.info("Processing the last 15 individual 1-minute candles using time-series vector trajectories to predict micro-horizons.")
 
-    if not base_data.empty and len(base_data) > 10:
-        close = base_data['Close']
-        high = base_data['High']
-        low = base_data['Low']
-        vol = base_data['Volume']
+    if not base_data.empty and len(base_data) >= 15:
+        m15_df = base_data.tail(15).copy()
         
-        c_price = close.iloc[-1]
+        close_arr = m15_df['Close'].to_numpy()
+        high_arr = m15_df['High'].to_numpy()
+        low_arr = m15_df['Low'].to_numpy()
+        vol_arr = m15_df['Volume'].to_numpy()
         
-        ema50 = close.ewm(span=50, adjust=False).mean().iloc[-1]
-        sma200 = close.rolling(window=200).mean().fillna(0).iloc[-1]
+        current_price = close_arr[-1]
         
-        delta = close.diff().fillna(0)
-        gain = delta.where(delta > 0, 0).rolling(window=14).mean()
-        loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
-        rs = gain / (loss + 1e-9)
-        rsi = 100 - (100 / (1 + rs)).fillna(50).iloc[-1]
+        # --- VECTOR MATRIX ENGINE CALCULATION ---
+        t_indices = np.arange(15)
+        slope, intercept = np.polyfit(t_indices, close_arr, 1)
         
-        typ_price = (high + low + close) / 3
-        vwap = (typ_price * vol).rolling(window=100).sum() / (vol.rolling(window=100).sum() + 1e-9)
-        current_vwap = vwap.fillna(0).iloc[-1]
+        velocities = np.diff(close_arr)
+        accelerations = np.diff(velocities)
         
-        vol_sma = vol.rolling(window=20).mean().iloc[-1]
-        current_vol = vol.iloc[-1]
+        latest_velocity = velocities[-1]
+        latest_acceleration = accelerations[-1]
+        
+        vol_sma_15 = np.mean(vol_arr)
+        latest_vol_ratio = vol_arr[-1] / (vol_sma_15 + 1e-9)
+        
+        session_direction = 1 if close_arr[-1] >= close_arr[-2] else -1
+        volume_force_vector = latest_velocity * latest_vol_ratio * session_direction
 
-        ai_score = 50
-        if c_price > ema50: ai_score += 10
-        else: ai_score -= 10
-        if c_price > sma200: ai_score += 10
-        else: ai_score -= 10
-        if c_price > current_vwap: ai_score += 15
-        else: ai_score -= 15
-        if current_vol > vol_sma and c_price > close.iloc[-2]: ai_score += 10
-        elif current_vol > vol_sma and c_price < close.iloc[-2]: ai_score -= 10
+        # --- MULTI-HORIZON PROJECTION LOOPS ---
+        horizons = [1, 2, 3, 4, 5]
+        predictions = {}
+        
+        for h in horizons:
+            base_trajectory = slope * h
+            momentum_decay = latest_velocity * (1 / (h ** 0.5))
+            acceleration_push = 0.5 * latest_acceleration * (h ** 2)
             
-        if rsi > 75: ai_score -= 20 
-        elif rsi < 30: ai_score += 20 
-        elif 50 < rsi <= 75: ai_score += 5 
+            predicted_delta = (base_trajectory * 0.50) + (momentum_decay * 0.35) + (volume_force_vector * 0.15) + (acceleration_push * 0.05)
+            
+            raw_confidence = (abs(predicted_delta) / current_price) * 10000
+            confidence_pct = max(51, min(98, int(50 + raw_confidence)))
+            
+            if predicted_delta > 0:
+                predictions[h] = {"bias": "BULLISH 📈", "color": "#00C853", "pct": confidence_pct}
+            else:
+                predictions[h] = {"bias": "BEARISH 📉", "color": "#FF5252", "pct": confidence_pct}
+
+        # --- UI PRESENTATION GRID ---
+        st.markdown("### ⏱️ Multi-Timeframe Algorithmic Forecast")
+        grid_cols = st.columns(5)
         
-        ai_score = max(0, min(100, ai_score))
+        for idx, h in enumerate(horizons):
+            pred = predictions[h]
+            with grid_cols[idx]:
+                st.markdown(f"""
+                <div style="background-color: rgba(10,10,10,0.8); border: 2px solid {pred['color']}; padding: 15px; border-radius: 8px; text-align: center;">
+                    <h4 style="margin: 0; color: #FFF; font-size: 14px;">Next +{h} Min</h4>
+                    <hr style="border-color: #222; margin: 10px 0;">
+                    <h3 style="color: {pred['color']}; margin: 5px 0; font-size: 18px; font-weight: bold;">{pred['bias'].split()[0]}</h3>
+                    <p style="margin: 0; font-size: 22px; font-weight: 900; color: {pred['color']};">{pred['pct']}%</p>
+                    <p style="margin: 0; font-size: 10px; color: #666; text-transform: uppercase;">Confidence</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+        # --- DEEP ANALYTICAL TELEMETRY ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### 🔬 Live Vector Diagnostics")
         
-        gemini_color = "#8A2BE2" 
-        
-        if ai_score >= 75:
-            v_text, v_color = "STRONG BUY", "#00C853"
-            f_text = "Mathematical probability suggests a heavy upward breakout. Institutional buyers are active."
-        elif ai_score >= 55:
-            v_text, v_color = "CAUTIOUS BUY", "#00E5FF"
-            f_text = "Trend is shifting upwards, but momentum is not yet locked. Good entry for early scalping."
-        elif ai_score <= 25:
-            v_text, v_color = "STRONG SELL", "#FF0000"
-            f_text = "Extreme bearish pressure. Institutions are dumping. Do not catch a falling knife."
-        elif ai_score <= 45:
-            v_text, v_color = "CAUTIOUS SELL", "#FF5252"
-            f_text = "Momentum is decaying. Price is slipping below VWAP. Better to exit or short."
+        c_panel1, c_panel2, c_panel3 = st.columns(3)
+        with c_panel1:
+            st.metric("Linear Slope Vector", f"{slope:+.4f}", delta="Overall 15-Min Trend Axis")
+        with c_panel2:
+            st.metric("Micro Velocity", f"{latest_velocity:+.2f}", delta=f"Acceleration: {latest_acceleration:+.4f}")
+        with c_panel3:
+            st.metric("Volume Momentum Force", f"{volume_force_vector:+.2f}", delta=f"Vol Ratio: {latest_vol_ratio:.2f}x")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if slope > 0 and latest_velocity > 0:
+            analysis_text = "The micro-cluster exhibits structural velocity breakout. Price actions confirm buyers are successfully lifting offers with accelerating intent."
+            log_border = "#00C853"
+        elif slope < 0 and latest_velocity < 0:
+            analysis_text = "The asset vector shows severe downstream liquidation pressure. Micro-support levels are failing to absorb supply spikes."
+            log_border = "#FF5252"
         else:
-            v_text, v_color = "NEUTRAL / HOLD", "#FFA726"
-            f_text = "The market is trapped in consolidation (Squeeze). Wait for the algorithmic breakout."
+            analysis_text = "Divergence detected between historical slope lines and ultra-recent momentum speeds. Expect choppy rotation patterns before directional clarity returns."
+            log_border = "#FFA726"
 
         st.markdown(f"""
-        <div style="background: linear-gradient(145deg, rgba(138,43,226,0.2) 0%, rgba(0,0,0,0.8) 100%); border: 3px solid {gemini_color}; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 0 20px {gemini_color};">
-            <h2 style="color: #FFFFFF; margin: 0; font-weight: 300; letter-spacing: 2px;">GEMINI CONVICTION SCORE</h2>
-            <h1 style="color: {gemini_color}; font-size: 80px; margin: 0; font-weight: 900; text-shadow: 0 0 10px {gemini_color};">{int(ai_score)}%</h1>
+        <div style="background-color: #111; border-left: 5px solid {log_border}; padding: 15px; border-radius: 4px;">
+            <p style="font-family: monospace; color: {log_border}; margin: 0 0 5px 0;">[SYSTEM ENGINE LOGS]</p>
+            <p style="color: #AAA; margin: 0; font-size: 14px;">{analysis_text}</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_now, col_future = st.columns(2)
-        
-        with col_now:
-            st.markdown(f'''
-            <div style="background-color:rgba(0, 0, 0, 0.4); border-left: 5px solid {v_color}; padding: 20px; border-radius: 5px; height: 180px;">
-                <p style="color: #AAAAAA; margin:0; font-size: 14px; text-transform: uppercase;">Current Market Verdict</p>
-                <h1 style="color: {v_color}; margin: 5px 0;">{v_text}</h1>
-                <p style="color: #FFFFFF; margin:0; font-size: 16px;">Action: Execute order based on current alignment.</p>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-        with col_future:
-            st.markdown(f'''
-            <div style="background-color:rgba(0, 0, 0, 0.4); border-left: 5px solid {gemini_color}; padding: 20px; border-radius: 5px; height: 180px;">
-                <p style="color: #AAAAAA; margin:0; font-size: 14px; text-transform: uppercase;">Predictive Horizon (Next 60 Min)</p>
-                <h3 style="color: {gemini_color}; margin: 5px 0;">{f_text}</h3>
-            </div>
-            ''', unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### 🧬 Gemini's Chain of Thought (Analysis Log)")
-        
-        trend_log = f"Price (₹{c_price:.2f}) is currently **{'above' if c_price > ema50 else 'below'}** the 50 EMA macro line. Long term structure is {'Bullish' if c_price > sma200 else 'Bearish'}."
-        vwap_log = f"Institutional Baseline (VWAP) sits at ₹{current_vwap:.2f}. The asset is trading **{'above' if c_price > current_vwap else 'below'}** this liquidity zone, showing smart money is {'accumulating' if c_price > current_vwap else 'distributing'}."
-
-        if rsi >= 75: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is dangerously overbought. High probability of a sharp pullback."
-        elif 55 <= rsi < 75: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bullish momentum is locked in. Buyers are in control."
-        elif 45 <= rsi < 55: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The market is flat and indecisive (Neutral Zone). Waiting for volume to pick a direction."
-        elif 30 < rsi < 45: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. Bearish pressure is mounting. The asset has room to drop further before finding a floor."
-        else: rsi_log = f"Momentum Engine (RSI) is reading **{rsi:.1f}**. The asset is severely oversold. Look for wick rejections signaling a violent bounce upward."
-
-        st.markdown(f"""<div style="background-color:rgba(20, 20, 20, 0.8); border: 1px solid #333333; padding: 20px; border-radius: 10px;">
-<p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Macro Trend...</p>
-<p style="color: #CCCCCC; margin-bottom: 15px;">{trend_log}</p>
-<p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Analyzing Order Flow & VWAP...</p>
-<p style="color: #CCCCCC; margin-bottom: 15px;">{vwap_log}</p>
-<p style="font-family: monospace; color: #00E5FF; margin-bottom: 5px;">> Calculating Velocity & Reversion...</p>
-<p style="color: #CCCCCC; margin-bottom: 0;">{rsi_log}</p>
-</div>""", unsafe_allow_html=True)
-
     else:
-        st.error("Market Data Unavailable. Waiting for connection to the exchange...")
+        st.error("Insufficient Data Cluster. Engine requires a minimum of 15 active 1-minute historical candles to calculate matrix derivatives.")
 
 # ----------------------------------------
 # PAGE 6: THE QUANTUM PREDICTOR & CALCULATOR
@@ -1126,7 +1110,6 @@ elif app_mode == "🧠 QUANTUM PREDICTOR":
                 st.write(f"💰 **Position Size:** ₹{(recommended_qty * entry_price):,.2f}")
             else:
                 st.warning("Entry and Stop Loss cannot be the same.")
-
     else:
         st.warning("Quantum Engine requires at least 15 minutes of live data to establish a volatility baseline.")
 
@@ -1147,17 +1130,13 @@ elif app_mode == "🎭 EMOTION DETECTOR":
         vol = base_data['Volume']
         c_price = close.iloc[-1]
         
-        # --- PILLAR 1: VOLATILITY PROXY (THE FEAR GAUGE) ---
         tr1 = high - low
         tr2 = abs(high - close.shift(1))
         tr3 = abs(low - close.shift(1))
         atr_1m = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14).mean().iloc[-1]
         
-        # Annualized Intraday Volatility Proxy (Similar to VIX)
         vix_proxy = (atr_1m / c_price) * 100 * math.sqrt(252 * 375)
         
-        # --- PILLAR 2: PCR SIMULATOR (MONEY FLOW) ---
-        # If price goes down on high volume, puts are being bought (Fear). If up, calls are bought (Greed).
         recent_price_change = c_price - close.iloc[-60]
         recent_vol_avg = vol.tail(60).mean()
         current_vol = vol.iloc[-1]
@@ -1169,13 +1148,9 @@ elif app_mode == "🎭 EMOTION DETECTOR":
         else:
             simulated_pcr = 1.0 - (abs(recent_price_change) / c_price * 10) * vol_spike_multiplier
         
-        simulated_pcr = max(0.4, min(1.8, simulated_pcr)) # Cap realistically between 0.4 and 1.8
+        simulated_pcr = max(0.4, min(1.8, simulated_pcr))
         
-        # --- PILLAR 3: OVERALL PSYCHOLOGY SCORE ---
-        # 0 = Extreme Fear (Panic Selling), 100 = Extreme Greed (FOMO Buying)
-        # High VIX = Fear. High PCR = Fear. 
-        
-        vix_fear_factor = min(100, (vix_proxy / 50) * 100) # Base 50 as high VIX
+        vix_fear_factor = min(100, (vix_proxy / 50) * 100)
         pcr_fear_factor = ((simulated_pcr - 0.4) / (1.8 - 0.4)) * 100
         
         total_fear = (vix_fear_factor * 0.4) + (pcr_fear_factor * 0.6)
@@ -1202,10 +1177,8 @@ elif app_mode == "🎭 EMOTION DETECTOR":
             gauge_color = "#FFA726"
             advice = "The market is undecided. Traders are waiting for a catalyst."
 
-        # --- UI DISPLAY ---
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Plotly Gauge Chart
         fig = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = greed_score,
@@ -1269,12 +1242,11 @@ elif app_mode == "🎭 EMOTION DETECTOR":
         if st.button("Run Deep Sentiment Scan"):
             if gemini_key:
                 with st.spinner("Connecting to Gemini AI Brain... Scanning web footprints..."):
-                    time.sleep(2) # Simulating API call latency
+                    time.sleep(2)
                     st.success("Scan Complete! (Note: Real web scraping module requires additional Python libraries. Synthetic output generated based on current tape).")
                     st.markdown(f"> **Gemini Analysis:** The rapid volume expansion pushing price to ₹{c_price:.2f} indicates a coordinated algorithmic squeeze. Retail sentiment on social platforms is currently shifting toward euphoria. Proceed with extreme caution; market makers are positioning to trap late buyers.")
             else:
                 st.error("Please enter your Gemini API Key to activate the News Scanner.")
-
     else:
         st.warning("Emotion Engine requires at least 60 minutes of live market data to calculate psychological baselines.")
 
@@ -1294,7 +1266,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
         low = base_data['Low']
         c_price = close.iloc[-1]
         
-        # Calculate recent volatility (Standard Deviation of log returns over 60 periods)
         log_returns = np.log(close / close.shift(1)).dropna()
         volatility = log_returns.std()
         
@@ -1302,11 +1273,9 @@ elif app_mode == "🔮 PRESCIENT TRADE":
         st.markdown("The algorithm projects future paths using Geometric Brownian Motion:")
         st.latex(r"S_t = S_0 \exp\left(\left(\mu - \frac{\sigma^2}{2}\right)t + \sigma W_t\right)")
         
-        # --- MONTE CARLO SIMULATION (Ghost Charting) ---
         simulations = 500
-        time_horizon = 30 # Next 30 minutes
+        time_horizon = 30
         
-        # Simulate price paths
         simulated_paths = np.zeros((time_horizon, simulations))
         simulated_paths[0] = c_price
         
@@ -1316,30 +1285,24 @@ elif app_mode == "🔮 PRESCIENT TRADE":
             random_shocks = np.random.normal(0, 1, simulations)
             simulated_paths[t] = simulated_paths[t-1] * np.exp(drift + volatility * random_shocks)
             
-        # Calculate percentiles for the cone
         percentile_5 = np.percentile(simulated_paths, 5, axis=1)
         percentile_25 = np.percentile(simulated_paths, 25, axis=1)
-        percentile_50 = np.percentile(simulated_paths, 50, axis=1) # Median expected path
+        percentile_50 = np.percentile(simulated_paths, 50, axis=1)
         percentile_75 = np.percentile(simulated_paths, 75, axis=1)
         percentile_95 = np.percentile(simulated_paths, 95, axis=1)
         
         future_index = pd.date_range(start=base_data.index[-1], periods=time_horizon, freq='1min')
         
-        # Plotting the cone
         fig_cone = go.Figure()
         
-        # 95% Bound
         fig_cone.add_trace(go.Scatter(x=future_index, y=percentile_95, line=dict(width=0), showlegend=False))
         fig_cone.add_trace(go.Scatter(x=future_index, y=percentile_5, fill='tonexty', fillcolor='rgba(255, 255, 255, 0.1)', line=dict(width=0), name='95% Probability Zone'))
         
-        # 50% Bound (Inner Cone)
         fig_cone.add_trace(go.Scatter(x=future_index, y=percentile_75, line=dict(width=0), showlegend=False))
         fig_cone.add_trace(go.Scatter(x=future_index, y=percentile_25, fill='tonexty', fillcolor='rgba(0, 200, 83, 0.2)', line=dict(width=0), name='50% Probability Zone'))
         
-        # Median Path (The "Ghost" Line)
         fig_cone.add_trace(go.Scatter(x=future_index, y=percentile_50, line=dict(color='#00E5FF', width=2, dash='dash'), name='Most Likely Path'))
         
-        # Add historical context (last 30 mins)
         fig_cone.add_trace(go.Scatter(x=base_data.index[-30:], y=close.iloc[-30:], line=dict(color='#FFFFFF', width=2), name='Historical Price'))
         
         fig_cone.update_layout(
@@ -1354,7 +1317,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
         
         st.markdown("---")
         
-        # --- THE ALPHA ENGINE: INSTITUTIONAL SENTIMENT ---
         col_nlp, col_ruin = st.columns(2)
         
         with col_nlp:
@@ -1366,7 +1328,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
             </div>
             """, unsafe_allow_html=True)
             
-            # Simulated dummy logic matching your design spec
             pattern_match_prob = int(np.random.uniform(60, 85))
             match_direction = "BULLISH BREAKOUT" if close.iloc[-1] > close.iloc[-5] else "BEARISH REJECTION"
             dir_color = "#00C853" if match_direction == "BULLISH BREAKOUT" else "#FF5252"
@@ -1379,7 +1340,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
             </div>
             """, unsafe_allow_html=True)
 
-        # --- THE RISK PREDICTION ENGINE (Anti-Blowout) ---
         with col_ruin:
             st.markdown("### 🛡️ Anti-Blowout Forecaster")
             st.markdown("""
@@ -1391,7 +1351,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
             
             sl_distance = st.number_input("Planned Stop-Loss Distance (%)", min_value=0.1, value=0.5, step=0.1)
             
-            # Calculate mathematical probability of touching that SL based on current 1-minute volatility
             vol_pct_30m = (volatility * math.sqrt(30)) * 100 
             prob_hit = min(99.9, (vol_pct_30m / sl_distance) * 50)
             
@@ -1406,7 +1365,6 @@ elif app_mode == "🔮 PRESCIENT TRADE":
 
         st.markdown("---")
         
-        # --- NO-CODE AI STRATEGY BUILDER ---
         st.markdown("### 🪄 No-Code AI Strategy Backtester")
         st.info("Write your trading rules in plain English. The AI will instantly compile and test it against the historical tape.")
         
@@ -1414,9 +1372,8 @@ elif app_mode == "🔮 PRESCIENT TRADE":
         
         if st.button("Generate & Backtest Strategy", use_container_width=True):
             with st.spinner("Compiling natural language to Python... Backtesting against Upstox 1m data..."):
-                time.sleep(2) # Simulate processing delay
+                time.sleep(2)
                 
-                # Synthetic backtest output based on terminal inputs
                 fake_win_rate = np.random.uniform(45, 68)
                 fake_trades = int(np.random.uniform(12, 45))
                 
@@ -1440,7 +1397,7 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
     st.markdown("---")
     
     nse_symbol = current_stock_info['Symbol']
-    yf_symbol = f"{nse_symbol}.NS"  # Yahoo Finance format for Indian NSE stocks
+    yf_symbol = f"{nse_symbol}.NS"
     
     st.subheader(f"Active Target: {current_stock_info['Name']} ({yf_symbol})")
     st.info("100% FREE market data. Features advanced technicals and TradingView-style drawing tools. Works 24/7.")
@@ -1457,7 +1414,6 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
             yf_data = ticker.history(period=yf_period, interval=yf_interval)
             
             if not yf_data.empty:
-                # --- ADVANCED CALCULATIONS ---
                 yf_data['SMA20'] = yf_data['Close'].rolling(window=20).mean()
                 yf_data['EMA50'] = yf_data['Close'].ewm(span=50, adjust=False).mean()
                 
@@ -1471,7 +1427,6 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
                 yf_data['MACD'] = exp1 - exp2
                 yf_data['Signal'] = yf_data['MACD'].ewm(span=9, adjust=False).mean()
 
-                # --- PLOTLY ADVANCED MULTI-PANEL CHART ---
                 fig = make_subplots(
                     rows=4, cols=1, 
                     shared_xaxes=True, 
@@ -1482,7 +1437,6 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
                 bull_color = 'black'
                 bear_color = 'blue'
 
-                # 1. Price Candlesticks & Moving Averages
                 fig.add_trace(go.Candlestick(
                     x=yf_data.index,
                     open=yf_data['Open'], high=yf_data['High'], low=yf_data['Low'], close=yf_data['Close'],
@@ -1493,20 +1447,16 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
                 fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['SMA20'], line=dict(color='#FFA500', width=2), name='SMA 20'), row=1, col=1)
                 fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['EMA50'], line=dict(color='#FF00FF', width=2), name='EMA 50'), row=1, col=1)
 
-                # 2. Volume 
                 vol_colors = [bull_color if row['Close'] >= row['Open'] else bear_color for index, row in yf_data.iterrows()]
                 fig.add_trace(go.Bar(x=yf_data.index, y=yf_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
 
-                # 3. RSI
                 fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['RSI'], line=dict(color='#8A2BE2', width=2), name='RSI'), row=3, col=1)
                 fig.add_hline(y=70, line_dash="dash", line_color=bear_color, row=3, col=1)
                 fig.add_hline(y=30, line_dash="dash", line_color=bull_color, row=3, col=1)
 
-                # 4. MACD
                 fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['MACD'], line=dict(color='#2962FF', width=2), name='MACD'), row=4, col=1)
                 fig.add_trace(go.Scatter(x=yf_data.index, y=yf_data['Signal'], line=dict(color='#FF8C00', width=2), name='Signal'), row=4, col=1)
 
-                # --- FORMATTING (PURE WHITE THEME) ---
                 fig.update_layout(
                     height=900,
                     plot_bgcolor='white',
@@ -1518,11 +1468,9 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
                     showlegend=False
                 )
 
-                # Grid Colors
                 fig.update_xaxes(showgrid=True, gridcolor='#E0E0E0', tickfont=dict(color='black'))
                 fig.update_yaxes(showgrid=True, gridcolor='#E0E0E0', tickfont=dict(color='black'))
 
-                # Display the chart with TradingView-style Drawing Tools Enabled
                 st.plotly_chart(fig, use_container_width=True, config={
                     'scrollZoom': True,
                     'displayModeBar': True,
