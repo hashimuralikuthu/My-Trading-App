@@ -66,9 +66,11 @@ app_mode = st.sidebar.radio(
         "🧠 QUANTUM PREDICTOR",
         "🎭 EMOTION DETECTOR",
         "🔮 PRESCIENT TRADE",
-        "📊 PAGE 9: YAHOO FINANCE GRAPH"
+        "🏆 PAGE 9: MASTER DASHBOARD",
+        "🔺 PAGE 10: TRINITY ENGINE" # <--- ADD THIS HERE
     ],
     key="nav_menu"
+)
 )
 
 # --- ADVANCED NSE TICKER & UPSTOX DATA FETCHING ---
@@ -1533,3 +1535,172 @@ elif app_mode == "📊 PAGE 9: YAHOO FINANCE GRAPH":
 
     else:
         st.error("Insufficient market data. The Golden Master Dashboard requires at least 60 minutes of live data to compile all engine verdicts.")
+        # ----------------------------------------
+# PAGE 10: THE TRINITY ENGINE (COUNCIL + FUTURE + EMOTION)
+# ----------------------------------------
+elif app_mode == "🔺 PAGE 10: TRINITY ENGINE":
+    st.title("🔺 The Trinity Engine (Triad Convergence)")
+    st.markdown("---")
+    
+    st.subheader(f"🎯 Convergence Target: {current_stock_info['Name']} ({current_stock_info['Symbol']})")
+    st.info("Fusing the 200 Member Council, Future Probability Matrix, and Emotion Detector into one unified directional vector.")
+
+    if not base_data.empty and len(base_data) > 60:
+        close = base_data['Close']
+        high = base_data['High']
+        low = base_data['Low']
+        vol = base_data['Volume']
+        c_price = close.iloc[-1]
+        
+        # ==========================================
+        # 1. COUNCIL COMPONENT (Technical Weight)
+        # ==========================================
+        council_bull_votes = 0
+        council_total_votes = 0
+        periods = [5, 10, 15, 20, 50]
+        
+        for p in periods:
+            sma = close.rolling(window=p, min_periods=1).mean().iloc[-1]
+            ema = close.ewm(span=p, adjust=False, min_periods=1).mean().iloc[-1]
+            if c_price > sma: council_bull_votes += 1
+            if c_price > ema: council_bull_votes += 1
+            council_total_votes += 2
+            
+        # Add core momentum to council
+        delta = close.diff().fillna(0)
+        gain = delta.where(delta > 0, 0).rolling(window=14, min_periods=1).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=14, min_periods=1).mean()
+        rs = gain / (loss + 1e-9)
+        rsi = 100 - (100 / (1 + rs)).fillna(50).iloc[-1]
+        
+        if 40 < rsi < 70: council_bull_votes += 2
+        council_total_votes += 2
+        
+        council_score_pct = (council_bull_votes / council_total_votes) * 100
+
+        # ==========================================
+        # 2. THE FUTURE COMPONENT (60-Min Horizon)
+        # ==========================================
+        df_60 = base_data.tail(60)
+        close_60 = df_60['Close']
+        future_bull_wins = 0
+        future_total = 0
+        
+        for p in [5, 10, 20]:
+            sma = close_60.rolling(window=p, min_periods=1).mean()
+            future_bull_wins += (close_60 > sma).sum()
+            future_total += len(close_60)
+            
+        future_score_pct = (future_bull_wins / future_total) * 100
+
+        # ==========================================
+        # 3. EMOTION COMPONENT (Fear/Greed Psychology)
+        # ==========================================
+        tr1 = high - low
+        tr2 = abs(high - close.shift(1))
+        tr3 = abs(low - close.shift(1))
+        atr_1m = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14, min_periods=1).mean().iloc[-1]
+        
+        vix_proxy = (atr_1m / c_price) * 100 * math.sqrt(252 * 375)
+        recent_price_change = c_price - close.iloc[-60]
+        recent_vol_avg = vol.tail(60).mean()
+        current_vol = vol.iloc[-1]
+        
+        vol_spike_multiplier = current_vol / (recent_vol_avg + 1e-9)
+        if recent_price_change < 0:
+            simulated_pcr = 1.0 + (abs(recent_price_change) / c_price * 10) * vol_spike_multiplier
+        else:
+            simulated_pcr = 1.0 - (abs(recent_price_change) / c_price * 10) * vol_spike_multiplier
+            
+        simulated_pcr = max(0.4, min(1.8, simulated_pcr))
+        vix_fear_factor = min(100, (vix_proxy / 50) * 100)
+        pcr_fear_factor = ((simulated_pcr - 0.4) / (1.8 - 0.4)) * 100
+        
+        total_fear = (vix_fear_factor * 0.4) + (pcr_fear_factor * 0.6)
+        emotion_score_pct = 100 - total_fear # Higher Greed = More Bullish
+
+        # ==========================================
+        # 4. TRINITY MASTER CALCULATION
+        # ==========================================
+        trinity_master_score = (council_score_pct + future_score_pct + emotion_score_pct) / 3
+
+        # Color and Text logic for individual engines
+        def get_status(score):
+            if score >= 60: return "BULLISH 🟢", "#00C853"
+            elif score <= 40: return "BEARISH 🔴", "#FF5252"
+            else: return "NEUTRAL ⚖️", "#FFA726"
+
+        c_text, c_col = get_status(council_score_pct)
+        f_text, f_col = get_status(future_score_pct)
+        e_text, e_col = get_status(emotion_score_pct)
+
+        # UI: INDIVIDUAL ENGINE PANELS
+        st.markdown("### 🧩 The Three Pillars")
+        col1, col2, col3 = st.columns(3)
+        
+        panel_style = """
+            background-color: #111; 
+            border: 1px solid #333; 
+            padding: 20px; 
+            border-radius: 8px; 
+            text-align: center;
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.02);
+        """
+        
+        with col1:
+            st.markdown(f"""
+            <div style="{panel_style}; border-bottom: 4px solid {c_col};">
+                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">200 Member Council</h4>
+                <h1 style="color:{c_col}; margin:10px 0;">{council_score_pct:.1f}%</h1>
+                <p style="color:{c_col}; margin:0; font-weight:bold;">{c_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown(f"""
+            <div style="{panel_style}; border-bottom: 4px solid {f_col};">
+                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">The Future Horizon</h4>
+                <h1 style="color:{f_col}; margin:10px 0;">{future_score_pct:.1f}%</h1>
+                <p style="color:{f_col}; margin:0; font-weight:bold;">{f_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div style="{panel_style}; border-bottom: 4px solid {e_col};">
+                <h4 style="color:#888; margin:0; text-transform:uppercase; font-size:12px;">Emotion Detector</h4>
+                <h1 style="color:{e_col}; margin:10px 0;">{emotion_score_pct:.1f}%</h1>
+                <p style="color:{e_col}; margin:0; font-weight:bold;">{e_text}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # UI: MASTER VERDICT
+        if trinity_master_score >= 65:
+            m_text, m_col = "STRONG BULLISH BREAKOUT", "#00FF00"
+            m_sub = "All three pillars agree. Technicals, probabilities, and market psychology are heavily aligned for an upward push."
+        elif trinity_master_score >= 55:
+            m_text, m_col = "CAUTIOUS BULLISH", "#00C853"
+            m_sub = "Slight upward advantage, but one of the pillars is showing resistance. Proceed with tight stop losses."
+        elif trinity_master_score <= 35:
+            m_text, m_col = "STRONG BEARISH DUMP", "#FF0000"
+            m_sub = "Total system breakdown. Fear is high, future projections are negative, and technicals are broken."
+        elif trinity_master_score <= 45:
+            m_text, m_col = "CAUTIOUS BEARISH", "#FF5252"
+            m_sub = "Downward pressure detected. Do not buy long here; look for shorting opportunities."
+        else:
+            m_text, m_col = "CONFLICTED / NEUTRAL", "#FFA726"
+            m_sub = "The Trinity is conflicted. Algorithms are fighting human emotion. Wait for alignment."
+
+        st.markdown(f"""
+        <div style="background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%); border: 3px solid {m_col}; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 0 30px rgba({int(m_col[1:3], 16)}, {int(m_col[3:5], 16)}, {int(m_col[5:7], 16)}, 0.2);">
+            <h3 style="color: #FFF; margin: 0; text-transform: uppercase; letter-spacing: 3px;">Trinity Master Verdict</h3>
+            <h1 style="color: {m_col}; margin: 15px 0; font-size: 55px; font-weight: 900; text-shadow: 0 0 15px {m_col};">{m_text}</h1>
+            <h2 style="color: #FFF; margin: 0;">Aggregate Score: {trinity_master_score:.1f}%</h2>
+            <p style="color: #AAA; margin: 15px 0 0 0; font-size: 16px;">{m_sub}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+        st.error("Insufficient market data. The Trinity Engine requires at least 60 minutes of live data to synchronize all three algorithms.")
